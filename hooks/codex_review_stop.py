@@ -129,7 +129,11 @@ def fingerprint(repo: Path) -> str:
         if entry.startswith(b"?? "):
             target = repo / entry[3:].decode("utf-8", "surrogateescape")
             try:
-                digest.update(target.read_bytes() if target.is_file() else b"")
+                content = target.read_bytes() if target.is_file() else b""
+                # Length-prefixed per file, so content cannot shift between files.
+                digest.update(
+                    entry + b"\0" + str(len(content)).encode() + b"\0" + content
+                )
             except OSError:
                 pass
     return digest.hexdigest()
@@ -210,7 +214,11 @@ def gate(payload: dict[str, Any]) -> dict[str, Any]:
     notes: list[str] = []
     problems: list[str] = []
     for repo, fp in pending[:MAX_REPOS_PER_STOP]:
-        report = STATE_DIR / session / f"{repo.name}.md"
+        report = (
+            STATE_DIR
+            / session
+            / f"{repo.name}-{hashlib.sha256(str(repo.resolve()).encode()).hexdigest()[:8]}.md"
+        )
         if fp in blocked or blocks >= MAX_BLOCKS:
             seen.append(fp)
             notes.append(
