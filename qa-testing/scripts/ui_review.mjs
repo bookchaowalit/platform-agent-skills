@@ -136,6 +136,29 @@ function auditPage({ forbid, primary, viewportWidth }) {
     }
   }
 
+  // 2c. Narrow text column: running text squeezed into a thin column beside other content
+  // (thumbnail + text + button in one row on a phone), so it reads a few words per line.
+  // Narrower than ~9 characters' width per line and 4+ lines, one finding per row.
+  const narrowRows = new Set();
+  for (const { t, el } of texts) {
+    if (t.length < 24 || crushed.has(el)) continue;
+    const cs = getComputedStyle(el);
+    const fs = parseFloat(cs.fontSize) || 16;
+    const lh = parseFloat(cs.lineHeight) || fs * 1.4;
+    const r = el.getBoundingClientRect();
+    if (!(r.width > 0 && r.width < fs * 9 && r.height >= lh * 3.5)) continue;
+    let row = el.parentElement;
+    while (row && row !== root) {
+      const rs = getComputedStyle(row);
+      if ((rs.display === "flex" || rs.display === "inline-flex") && !rs.flexDirection.startsWith("column") && row.children.length > 1) break;
+      if (rs.display === "grid" && rs.gridTemplateColumns.split(" ").length > 1) break;
+      row = row.parentElement;
+    }
+    if (!row || row === root || narrowRows.has(row)) continue;
+    narrowRows.add(row);
+    add("major", "narrow-text-column", `"${t.slice(0, 30)}" runs in a ${Math.round(r.width)}px column (~${Math.round(r.width / fs)} characters per line, ${Math.round(r.height / lh)} lines) beside other content — stack the row on narrow screens or give the text the full width`, el);
+  }
+
   // 3. Long text blocks inside cards/sections (wall of text)
   const BLOCK = "p,div,ul,ol,dl,dt,dd,li,section,article,table,h1,h2,h3,h4,h5,h6,details,form";
   const reported = new Set();
