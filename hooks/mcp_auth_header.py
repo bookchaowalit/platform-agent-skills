@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """headersHelper for the solo-empire tool hub: print the Authorization header as JSON.
 
-The bearer comes from SOLO_MCP_REMOTE_TOKEN (cloud sessions set it as an environment
-variable) or, on a workstation, from Infisical folder /mcp through the logged-in CLI. The
-token is never written to a config file. With neither available it prints {} and the server
-answers 401, so the tool hub simply stays unavailable.
+The bearer comes from Infisical folder /mcp through the logged-in Infisical CLI and is never
+written to a config file. Claude Code hides credential-like environment variables from
+plugin helpers, and cloud sessions do not install plugins, so a cloud session adds the
+server itself with a literal ${SOLO_MCP_REMOTE_TOKEN} header (see the remote MCP README).
+Without the CLI or a login it prints {} and the server answers 401, so the tool hub simply
+stays unavailable.
 """
 
 from __future__ import annotations
@@ -31,8 +33,6 @@ def infisical_project() -> str | None:
 
 
 def token() -> str | None:
-    if os.environ.get("SOLO_MCP_REMOTE_TOKEN"):
-        return os.environ["SOLO_MCP_REMOTE_TOKEN"]
     cli = shutil.which("infisical") or str(Path.home() / ".local" / "bin" / "infisical")
     project = infisical_project()
     if not project or not Path(cli).exists():
