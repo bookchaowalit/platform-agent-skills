@@ -49,6 +49,8 @@ every test to evidence, and every gap to an owner.
 - `ui_signoff.py` posts the GitHub commit status `ui-review`. For pull requests that
   touch no UI files, use `ui_review_status.py`. Where a branch rule requires the
   status, every pull request needs one of the two.
+- Logged-in pages: `scripts/ui_login.mjs` saves a session (mode 600, outside any repo).
+  Pass it to `ui_review.mjs` and `ui_states.mjs` with `--storage-state`.
 - `scripts/ui_review_gate.py` is a PreToolUse hook. It blocks `vercel --prod` and
   `gh pr merge` for unsigned UI changes. `UI_REVIEW_GATE=off` disables it.
 

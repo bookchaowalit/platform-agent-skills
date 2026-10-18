@@ -36,6 +36,7 @@ function parseArgs(argv) {
   const args = {
     url: [], widths: "320,375,768,1024,1440", out: "ui-review", forbid: "", primary: "", dismiss: "", slice: "1400",
     browser: "chromium", device: "", baseline: "", a11y: "auto", perf: "off", "perf-budget": "300", "perf-click": "",
+    "storage-state": "",
   };
   for (let i = 0; i < argv.length; i += 1) {
     const key = argv[i].replace(/^--/, "");
@@ -63,6 +64,8 @@ function parseArgs(argv) {
     perf: args.perf,
     perfBudget: Number(args["perf-budget"]) || 300,
     perfClick: args["perf-click"],
+    // Logged-in pages: a Playwright storage state saved by ui_login.mjs (kept outside the repo).
+    storageState: args["storage-state"] || undefined,
   };
 }
 
@@ -201,7 +204,7 @@ function auditPage({ forbid, primary, viewportWidth }) {
 }
 
 async function capture(browser, browserName, variant, url, opts, report, extras) {
-  const ctx = await browser.newContext(variant.options);
+  const ctx = await browser.newContext({ ...variant.options, storageState: opts.storageState });
   const page = await ctx.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message.slice(0, 160)));

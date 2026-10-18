@@ -234,6 +234,9 @@ Steps:
    - P7: capture every changed page and its siblings, and look at them;
    - P8: states of changed controls;
    - P8b: `--perf mobile` on the changed pages.
+
+   Logged-in pages use the read-only review accounts in
+   `production-test-accounts.md`, through `ui_login.mjs` and `--storage-state`.
 4. Compare the live captures with the approved after-captures. Use `--baseline <repo>`
    so the diff lists the regions, then look at each one. Any difference is either
    expected and noted, or a new defect. Live data such as prices, dates and counts

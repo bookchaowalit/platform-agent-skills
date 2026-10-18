@@ -81,6 +81,7 @@ Report with `references/report-format.md`.
 - `references/page-checklist.md` has the measurable section-by-section criteria for P7.
 - `references/interaction-states.md` has the state matrix and contrast rules for P8.
 - `references/data-and-figures.md` has the figure inventory and reconciliation for P10.
+- `references/production-test-accounts.md`: rules for read-only review accounts and sessions on production. Read it before any logged-in live check.
 - `references/report-format.md` sets the evidence folder layout, IDs, severities, CSV
   columns and summary.
 - `scripts/ui_states.mjs` forces hover, focus and active on every control and measures

@@ -25,7 +25,7 @@ import { captureBase, launchAll, loadPlaywright, parseBrowsers, unsupported, var
 const CONTROLS = "a[href],button,[role=button],[role=tab],[role=menuitem],summary,input:not([type=hidden]),select,textarea";
 
 function parseArgs(argv) {
-  const args = { url: [], widths: "375,1440", out: "ui-states", max: "150", dismiss: "", browser: "chromium", device: "" };
+  const args = { url: [], widths: "375,1440", out: "ui-states", max: "150", dismiss: "", browser: "chromium", device: "", "storage-state": "" };
   for (let i = 0; i < argv.length; i += 2) {
     const key = argv[i].replace(/^--/, "");
     if (key === "url") args.url.push(argv[i + 1]);
@@ -41,6 +41,7 @@ function parseArgs(argv) {
     dismiss: args.dismiss.split(",").map((s) => s.trim()).filter(Boolean),
     browsers: parseBrowsers(args.browser),
     devices: args.device,
+    storageState: args["storage-state"] || undefined,
   };
 }
 
@@ -161,7 +162,7 @@ async function main() {
         const why = unsupported(browserName, variant);
         if (why) { skipped.push({ browser: browserName, url, variant: variant.label, reason: why }); continue; }
         const { width } = variant;
-        const ctx = await browser.newContext(variant.options);
+        const ctx = await browser.newContext({ ...variant.options, storageState: opts.storageState });
         const page = await ctx.newPage();
         await page.goto(url, { waitUntil: "networkidle", timeout: 60000 });
         for (const name of opts.dismiss) {
