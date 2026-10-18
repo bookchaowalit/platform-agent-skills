@@ -1,6 +1,6 @@
 ---
 name: qa-testing
-description: Plan and evidence software quality for Solo Empire systems — test strategy, test levels, environments, test cases with expected results, entry/exit criteria, defect records, UAT scripts, quality-gate evidence linked to requirements, and the full-page UI visual review with sign-off before a UI release. Use when designing tests or UAT for a system, writing a test-uat document, assessing release readiness from test evidence, reconciling test results with the RTM, or reviewing, merging or deploying any user-facing UI change.
+description: Plan and evidence software quality for Solo Empire systems — test strategy, test levels, environments, test cases with expected results, entry/exit criteria, defect records, UAT scripts, quality-gate evidence linked to requirements, and the full-page UI visual review (cross-browser and device capture, visual baseline diff, accessibility and mobile performance) with sign-off before a UI release. Use when designing tests or UAT for a system, writing a test-uat document, assessing release readiness from test evidence, reconciling test results with the RTM, or reviewing, merging or deploying any user-facing UI change.
 ---
 
 # QA and Testing
@@ -28,8 +28,13 @@ every test to evidence, and every gap to an owner.
    - Follow its section 0 procedure: review every touched page and its sibling
      pages at 375 and 1440 (plus 320, 768 and 1024 for layout changes).
    - Capture with `scripts/ui_review.mjs`, then look at every screenshot slice.
+     Before a release, add WebKit, Firefox and phone emulation (`--browser`,
+     `--device`), the visual diff against the approved baseline (`--baseline`),
+     axe-core accessibility, and mobile Core Web Vitals (`--perf mobile`). See
+     gate section 5 and `references/browsers-and-tools.md`.
    - Log each finding as a defect.
-   - Sign off the reviewed commit with `scripts/ui_signoff.py`.
+   - Sign off the reviewed commit with `scripts/ui_signoff.py`. Add
+     `--promote-baseline` to a pass so it becomes the next visual baseline.
    - Capture the live URL again after deploy.
 7. Check release readiness against `templates/development-cycle/quality-gate-pack.md`.
 

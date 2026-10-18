@@ -10,6 +10,12 @@ Steps:
    - every page that renders the same components.
 2. Capture every page at every width in scope:
    `node ../qa-testing/scripts/ui_review.mjs --url ... --widths 320,375,768,1024,1440 --out 07-pages --forbid <words>`.
+   - Add `--browser chromium,webkit,firefox --device iphone,android` for the pages in the
+     main use cases. Many iOS-only bugs show up only in WebKit with the iPhone
+     descriptor: `100vh`, sticky headers, date inputs and Thai font fallback. Browser
+     setup, including WSL without sudo, is in `../qa-testing/references/browsers-and-tools.md`.
+   - Add `--baseline <product repo>` when a signed-off baseline exists. Read the
+     "Visual changes" list in `report.md` first: every changed region needs a reason.
 3. Open every slice. Work through the page from top to bottom, one section at a time,
    using `page-checklist.md`, at phone width first and then desktop. Write findings
    against the section, not just the page.
@@ -26,7 +32,9 @@ Output: `07-pages/report.md`, the slices, and `07-page-findings.csv`
 Steps:
 
 1. Run `node scripts/ui_states.mjs --url ... --widths 375,1440 --out 08-states` on each
-   page. It forces hover, keyboard focus and press on every control. It records text and
+   page. Add `--browser webkit,firefox` and `--device iphone` for controls in the main
+   use cases. Focus rings and hover differ between engines, and touch devices have no
+   hover. It forces hover, keyboard focus and press on every control. It records text and
    background colour, contrast and focus-outline visibility, and whether the state
    differs from the default.
 2. By hand, open and check each of these against `interaction-states.md`:
@@ -46,6 +54,43 @@ as default when it should differ.
 
 Output: `08-states/states.json`, `08-states/report.md`, screenshots and
 `08-state-findings.csv`
+
+## P8b Accessibility and performance
+
+Steps:
+
+1. Install axe-core next to Playwright (`../qa-testing/references/browsers-and-tools.md`).
+   Every P7 capture then includes the axe pass. Every violated WCAG A or AA rule becomes
+   an `a11y:<rule>` finding:
+   - critical → blocker (missing alt, unlabeled input, nameless button);
+   - serious → major (contrast, link names);
+   - moderate or minor → minor.
+2. For each page in the main use cases, run on a production build (a local
+   `build && start`, a preview, or the live URL; never a dev server):
+   `node ../qa-testing/scripts/ui_review.mjs --url ... --widths 375 --perf mobile --out 08b-perf`.
+   - The run measures LCP, CLS, TBT, INP and the JavaScript transferred, on a throttled
+     phone profile.
+   - Add `--perf-click "<selector>"` to measure INP on the page's main control instead
+     of a Tab key press.
+   - Add `--perf-budget <KB>` when the product has a JS budget.
+3. Re-run any metric that is borderline. A result counts only when it repeats.
+4. Check by hand what axe cannot compute:
+   - the keyboard path through each flow (from P8);
+   - screen-reader names of icon buttons and the order of headings;
+   - zoom to 200% at 1280px;
+   - `prefers-reduced-motion`;
+   - contrast of text on images and gradients.
+
+Pass:
+
+- no `a11y` blocker is open;
+- every major finding is fixed or accepted by the owner in writing;
+- LCP ≤ 2.5 s, CLS ≤ 0.1, TBT and INP ≤ 200 ms and JS within budget, or each miss has
+  a defect ID with its cause, for example the largest script, the image that shifts, or
+  the long task.
+
+Output: `07-pages/report.json` (a11y findings), `08b-perf/report.md` (metrics table) and
+`08b-findings.csv`
 
 ## P9 Content: Thai copy and production readiness
 
@@ -177,14 +222,23 @@ Steps:
 
 1. Sign off the reviewed commit with this command, writing in the notes what you looked
    at and what is still open:
-   `python3 ../qa-testing/scripts/ui_signoff.py --repo . --report 07-pages/report.json --reviewer <who> --verdict pass|pass-with-notes --notes "..."`
+   `python3 ../qa-testing/scripts/ui_signoff.py --repo . --report 07-pages/report.json --reviewer <who> --verdict pass|pass-with-notes --notes "..." --promote-baseline`
+   - `--promote-baseline` makes the reviewed slices the approved visual baseline. Later
+     captures with `--baseline .` then show only what changed.
+   - Promote only a capture you looked at in full; a failed review cannot be promoted.
 2. Open the PR with before/after screenshots. Merge and deploy only with the owner's
    approval. The release gate blocks unsigned UI changes.
-3. After deploy, run P3 (status and errors), P7 (capture every changed page and its
-   siblings, and look at them) and P8 (states of changed controls) on the live URL.
-   Production data and builds differ from local ones.
-4. Compare the live captures with the approved after-captures. Any difference is either
-   expected and noted, or a new defect.
+3. After deploy, run these on the live URL, because production data and builds differ
+   from local ones:
+   - P3: status and errors;
+   - P7: capture every changed page and its siblings, and look at them;
+   - P8: states of changed controls;
+   - P8b: `--perf mobile` on the changed pages.
+4. Compare the live captures with the approved after-captures. Use `--baseline <repo>`
+   so the diff lists the regions, then look at each one. Any difference is either
+   expected and noted, or a new defect. Live data such as prices, dates and counts
+   changes pixels by design; note those regions instead of promoting a new baseline for
+   them.
 
 Pass: the live re-check is clean, or every difference has a defect ID and a next step.
 

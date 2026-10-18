@@ -10,6 +10,9 @@ Run it after ui_review.mjs and after reading every screenshot slice:
 It refuses when the report still has blocker findings, unless --accept-blockers gives
 a reason (for example, a known third-party widget). Evidence is written outside the
 repository (see ui_review_evidence.py), keyed by the commit you reviewed.
+
+With --promote-baseline (only for a pass verdict) the reviewed slices become the new
+approved baseline that ``ui_review.mjs --baseline <repo>`` compares later captures with.
 """
 
 from __future__ import annotations
@@ -22,7 +25,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from ui_review_evidence import git, repo_root, repo_slug, write_evidence
+from ui_review_evidence import (
+    baseline_dir,
+    git,
+    promote_baseline,
+    repo_root,
+    repo_slug,
+    write_evidence,
+)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -50,7 +60,19 @@ def main(argv: list[str] | None = None) -> int:
         default="",
         help="reason to sign off despite blocker findings",
     )
+    parser.add_argument(
+        "--promote-baseline",
+        action="store_true",
+        help="make the reviewed screenshots the approved visual baseline",
+    )
+    parser.add_argument(
+        "--baseline-dir",
+        help="baseline folder (default: <state dir>/<owner>__<repo>/baselines)",
+    )
     args = parser.parse_args(argv)
+    if args.promote_baseline and args.verdict == "fail":
+        print("ui_signoff: a failed review cannot become the baseline", file=sys.stderr)
+        return 1
 
     root = repo_root(Path(args.repo).resolve())
     if root is None:
@@ -77,6 +99,17 @@ def main(argv: list[str] | None = None) -> int:
 
     sha = git(root, "rev-parse", args.sha or "HEAD")
     slug = repo_slug(root)
+    signed_at = datetime.now(UTC).isoformat(timespec="seconds")
+    promoted: list[str] = []
+    if args.promote_baseline:
+        folder = Path(args.baseline_dir) if args.baseline_dir else baseline_dir(slug)
+        promoted = promote_baseline(folder, report, sha, signed_at, report_path.parent)
+        if not promoted:
+            print(
+                "ui_signoff: --promote-baseline found no screenshots in the report",
+                file=sys.stderr,
+            )
+            return 1
     record = {
         "repo": slug,
         "sha": sha,
@@ -88,10 +121,13 @@ def main(argv: list[str] | None = None) -> int:
         "widths": widths,
         "counts": counts,
         "report": str(report_path),
-        "signed_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "signed_at": signed_at,
+        "baseline_promoted": promoted or None,
     }
     path = write_evidence(slug, sha, record)
     print(f"ui_signoff: {args.verdict} for {slug}@{sha[:7]} → {path}")
+    if promoted:
+        print(f"ui_signoff: promoted {len(promoted)} capture(s) to the visual baseline")
     return 0
 
 

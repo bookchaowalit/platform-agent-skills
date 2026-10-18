@@ -167,6 +167,60 @@ class GateTest(unittest.TestCase):
         )
         self.assertEqual(self.signoff(), 1)
 
+    def test_promote_baseline(self) -> None:
+        shots = Path(self.tmp.name) / "shots"
+        shots.mkdir()
+        pages = []
+        for width, slices in ((375, 2), (1440, 1)):
+            files = []
+            for index in range(slices):
+                file = shots / f"x-{width}-{index:02d}.png"
+                file.write_bytes(f"png {width} {index}".encode())
+                files.append(str(file))
+            pages.append(
+                {
+                    "url": "https://x.test/a",
+                    "width": width,
+                    "browser": "chromium",
+                    "key": f"x-{width}",
+                    "screenshots": files,
+                }
+            )
+        self.report.write_text(json.dumps({"counts": {"blocker": 0}, "pages": pages}))
+        baselines = ui_review_evidence.baseline_dir("acme/web")
+        self.assertEqual(
+            self.signoff("--verdict", "fail", "--promote-baseline"),
+            1,
+            "a failed review must not become the baseline",
+        )
+        self.assertFalse(baselines.exists())
+
+        self.assertEqual(self.signoff("--promote-baseline"), 0)
+        self.assertEqual(
+            sorted(p.name for p in (baselines / "x-375").iterdir()),
+            ["00.png", "01.png"],
+        )
+        manifest = json.loads((baselines / "manifest.json").read_text())
+        self.assertEqual(manifest["x-375"]["slices"], 2)
+        self.assertEqual(manifest["x-1440"]["sha"], sh(self.repo, "rev-parse", "HEAD"))
+        evidence = json.loads(
+            (
+                ui_review_evidence.evidence_dir("acme/web")
+                / f"{manifest['x-375']['sha']}.json"
+            ).read_text()
+        )
+        self.assertEqual(sorted(evidence["baseline_promoted"]), ["x-1440", "x-375"])
+
+        # A shorter page replaces the old slices instead of leaving a stale 01.png.
+        # Paths relative to another working directory are found next to the report.
+        moved = self.report.parent / "x-375-00.png"
+        moved.write_bytes(b"png moved")
+        pages[0]["screenshots"] = ["elsewhere/x-375-00.png"]
+        self.report.write_text(json.dumps({"counts": {"blocker": 0}, "pages": pages}))
+        self.assertEqual(self.signoff("--promote-baseline"), 0)
+        self.assertEqual([p.name for p in (baselines / "x-375").iterdir()], ["00.png"])
+        self.assertEqual((baselines / "x-375" / "00.png").read_bytes(), b"png moved")
+
     def test_merge_target_parsing(self) -> None:
         self.assertEqual(
             ui_review_gate.gh_merge_target(
