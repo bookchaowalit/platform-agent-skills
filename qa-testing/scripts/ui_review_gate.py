@@ -1,0 +1,154 @@
+#!/usr/bin/env python3
+"""PreToolUse hook: no production UI release without a visual review sign-off.
+
+Blocks a shell command that ships UI to users when the commit has UI changes nobody
+signed off with ui_signoff.py:
+
+- ``vercel ... --prod`` / ``vercel promote`` (the checkout's HEAD is what ships);
+- ``gh pr merge`` (the PR head is what merges; PRs that touch no UI files pass).
+
+A sign-off covers its commit and any later commit that changes no UI files. Passing
+tests, overflow checks or an agent's summary are not a sign-off: someone has to look at
+full-page screenshots of every touched page at phone and desktop widths
+(references/ui-quality-gate.md, section 0).
+
+Input: the hook JSON on stdin (``tool_name``, ``tool_input.command``, ``cwd``).
+Output: a PreToolUse ``deny`` decision with the reason, or nothing to allow.
+Unexpected errors allow the command and print a note, so the gate never locks you out.
+Set ``UI_REVIEW_GATE=off`` in the environment to disable it.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import shlex
+import subprocess
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from ui_review_evidence import covering_signoff, git, is_ui_file, repo_has_ui, repo_root, repo_slug, signed_shas  # noqa: E402
+
+SPLIT = re.compile(r"\s*(?:&&|\|\||;|\|)\s*")
+HOW_TO = (
+    "Run the UI visual review first (qa-testing skill, references/ui-quality-gate.md section 0): "
+    "node <qa-testing>/scripts/ui_review.mjs --url <each touched page> --widths 320,375,768,1024,1440 --out <dir>, "
+    "look at every screenshot slice and fix what you see, then "
+    "python3 <qa-testing>/scripts/ui_signoff.py --repo <repo> --report <dir>/report.json --reviewer <who> --verdict pass --notes '<what you checked>'. "
+    "The owner can disable this gate with UI_REVIEW_GATE=off."
+)
+
+
+def segments(command: str) -> list[list[str]]:
+    out = []
+    for part in SPLIT.split(command):
+        try:
+            tokens = shlex.split(part)
+        except ValueError:
+            tokens = part.split()
+        while tokens and re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", tokens[0]):
+            tokens = tokens[1:]  # leading VAR=value assignments
+        if tokens:
+            out.append(tokens)
+    return out
+
+
+def is_vercel_prod(tokens: list[str]) -> bool:
+    if "vercel" not in [Path(t).name for t in tokens] and not any(t.startswith("vercel@") for t in tokens):
+        return False
+    return "--prod" in tokens or "--production" in tokens or "promote" in tokens
+
+
+def gh_merge_target(tokens: list[str]) -> tuple[str, str | None] | None:
+    if tokens[:3] != ["gh", "pr", "merge"]:
+        return None
+    target, repo, rest = "", None, tokens[3:]
+    i = 0
+    while i < len(rest):
+        tok = rest[i]
+        if tok in {"--repo", "-R"} and i + 1 < len(rest):
+            repo = rest[i + 1]
+            i += 2
+            continue
+        if tok.startswith("--repo="):
+            repo = tok.split("=", 1)[1]
+        elif not tok.startswith("-") and not target:
+            target = tok
+        i += 1
+    return target, repo
+
+
+def deny(reason: str) -> None:
+    print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": reason}}))
+
+
+def check_deploy(cwd: Path) -> str | None:
+    root = repo_root(cwd)
+    if root is None or not repo_has_ui(root):
+        return None
+    head = git(root, "rev-parse", "HEAD")
+    slug = repo_slug(root)
+    if covering_signoff(root, slug, head):
+        return None
+    return f"UI review gate: {slug}@{head[:7]} is about to go to production without a visual review sign-off. {HOW_TO}"
+
+
+def check_merge(cwd: Path, target: str, repo_arg: str | None) -> str | None:
+    cmd = ["gh", "pr", "view", *([target] if target else []), "--json", "headRefOid,files,number"]
+    if repo_arg:
+        cmd += ["--repo", repo_arg]
+    view = subprocess.run(cmd, capture_output=True, text=True, timeout=60, cwd=cwd)
+    if view.returncode != 0:
+        raise RuntimeError(view.stderr.strip() or "gh pr view failed")
+    pr = json.loads(view.stdout)
+    ui_files = [f["path"] for f in pr.get("files", []) if is_ui_file(f["path"])]
+    if not ui_files:
+        return None
+    head = pr["headRefOid"]
+    root = repo_root(cwd)
+    slug = repo_arg or (repo_slug(root) if root else "")
+    if root is not None and repo_slug(root) == slug:
+        if subprocess.run(["git", "-C", str(root), "cat-file", "-e", head], capture_output=True).returncode != 0:
+            subprocess.run(["git", "-C", str(root), "fetch", "-q", "origin"], capture_output=True, timeout=120)
+        if covering_signoff(root, slug, head):
+            return None
+    elif head in signed_shas(slug):
+        return None
+    shown = ", ".join(ui_files[:4]) + (" …" if len(ui_files) > 4 else "")
+    return f"UI review gate: PR #{pr.get('number')} in {slug} changes UI ({shown}) and {head[:7]} has no visual review sign-off. {HOW_TO}"
+
+
+def main() -> int:
+    if os.environ.get("UI_REVIEW_GATE", "").lower() == "off":
+        return 0
+    try:
+        payload = json.load(sys.stdin)
+    except ValueError:
+        return 0
+    if payload.get("tool_name") not in {"Bash", "PowerShell"}:
+        return 0
+    command = (payload.get("tool_input") or {}).get("command") or ""
+    cwd = Path(payload.get("cwd") or os.getcwd())
+    try:
+        for tokens in segments(command):
+            if tokens[0] == "cd" and len(tokens) > 1:
+                cwd = (cwd / os.path.expanduser(tokens[1])).resolve()
+                continue
+            reason = None
+            if is_vercel_prod(tokens):
+                reason = check_deploy(cwd)
+            elif (merge := gh_merge_target(tokens)) is not None:
+                reason = check_merge(cwd, *merge)
+            if reason:
+                deny(reason)
+                return 0
+    except Exception as error:  # noqa: BLE001 - never lock the user out on a gate bug
+        print(f"ui_review_gate: skipped ({error})", file=sys.stderr)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

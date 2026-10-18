@@ -1,6 +1,6 @@
 ---
 name: qa-testing
-description: Plan and evidence software quality for Solo Empire systems — test strategy, test levels, environments, test cases with expected results, entry/exit criteria, defect records, UAT scripts, and quality-gate evidence linked to requirements. Use when designing tests or UAT for a system, writing a test-uat document, assessing release readiness from test evidence, or reconciling test results with the RTM.
+description: Plan and evidence software quality for Solo Empire systems — test strategy, test levels, environments, test cases with expected results, entry/exit criteria, defect records, UAT scripts, quality-gate evidence linked to requirements, and the full-page UI visual review with sign-off before a UI release. Use when designing tests or UAT for a system, writing a test-uat document, assessing release readiness from test evidence, reconciling test results with the RTM, or reviewing, merging or deploying any user-facing UI change.
 ---
 
 # QA and Testing
@@ -23,8 +23,14 @@ every test to evidence, and every gap to an owner.
 5. Record defects with `templates/development-cycle/defect-record.md` and
    update the RTM status column through `business-analysis`.
 6. For any user-facing screen, run the UI quality gate in
-   `references/ui-quality-gate.md` (readability, menu order, Thai copy) on the
-   rendered app at 375px and 1280px, and log each finding as a defect.
+   `references/ui-quality-gate.md` on the rendered app. It covers readability,
+   menu order, Thai copy, and information density and financial data.
+   - Follow its section 0 procedure: review every touched page and its sibling
+     pages at 375 and 1440 (plus 320, 768 and 1024 for layout changes).
+   - Capture with `scripts/ui_review.mjs`, then look at every screenshot slice.
+   - Log each finding as a defect.
+   - Sign off the reviewed commit with `scripts/ui_signoff.py`.
+   - Capture the live URL again after deploy.
 7. Check release readiness against `templates/development-cycle/quality-gate-pack.md`.
 
 ## Decision rules
@@ -33,6 +39,10 @@ every test to evidence, and every gap to an owner.
   acceptance; only the client signs acceptance.
 - Untested or blocked cases stay visible with a reason; never drop them.
 - Production data or real payments in tests → stop for explicit approval.
+- Passing tests, overflow checks and agent summaries are not a UI review. Only a
+  look at the rendered screenshots is, recorded with `ui_signoff.py`.
+- `scripts/ui_review_gate.py` is a PreToolUse hook. It blocks `vercel --prod` and
+  `gh pr merge` for unsigned UI changes. `UI_REVIEW_GATE=off` disables it.
 
 ## Handoff
 
