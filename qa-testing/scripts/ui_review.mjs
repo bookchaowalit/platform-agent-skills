@@ -203,8 +203,10 @@ function auditPage({ forbid, primary, viewportWidth }) {
   if (vw <= 768) {
     const tiny = [...root.querySelectorAll("a,button,input,select,[role=button]")].filter((el) => {
       if (isHidden(el)) return false;
-      const r = el.getBoundingClientRect();
-      return r.width > 0 && (r.height < 44 && r.width < 44) && getComputedStyle(el).display !== "inline";
+      // A checkbox or radio inside a label is tapped through the label, so measure that.
+      const target = el.matches("input[type=checkbox],input[type=radio]") && el.closest("label") ? el.closest("label") : el;
+      const r = target.getBoundingClientRect();
+      return r.width > 0 && (r.height < 44 && r.width < 44) && getComputedStyle(target).display !== "inline";
     });
     if (tiny.length) add("minor", "tap-target", `${tiny.length} control(s) under 44×44px`, tiny[0]);
   }
