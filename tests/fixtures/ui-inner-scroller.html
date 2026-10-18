@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inner scroller fixture</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; font: 16px/1.5 system-ui, sans-serif; }
+  .shell { display: flex; flex-direction: column; height: 100vh; }
+  header { flex: none; height: 56px; padding: 0 16px; display: flex; align-items: center; background: #1f2937; color: #fff; }
+  .app-scroll { flex: 1; height: 100vh; overflow-y: auto; }
+  .tiny-list { height: 80px; overflow-y: auto; width: 120px; }
+  section { min-height: 600px; padding: 16px; border-bottom: 1px solid #ddd; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <header>App shell</header>
+  <div class="app-scroll" id="main-scroll">
+    <section><h1>First section</h1><p>The document is one viewport tall; this container scrolls.</p>
+      <div class="tiny-list"><p>One</p><p>Two</p><p>Three</p><p>Four</p></div></section>
+    <section><h2>Second section</h2><p>Only visible after scrolling the inner container.</p></section>
+    <section><h2>Third section</h2><p>Still inside the inner scroller.</p></section>
+    <section><h2>Last section</h2><p id="end">End of the page.</p></section>
+  </div>
+</div>
+</body>
+</html>

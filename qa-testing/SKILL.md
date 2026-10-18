@@ -27,7 +27,8 @@ every test to evidence, and every gap to an owner.
    menu order, Thai copy, and information density and financial data.
    - Follow its section 0 procedure: review every touched page and its sibling
      pages at 375 and 1440 (plus 320, 768 and 1024 for layout changes).
-   - Capture with `scripts/ui_review.mjs`, then look at every screenshot slice.
+   - Capture with `scripts/ui_review.mjs`, then look at every screenshot slice. It
+     expands an inner app-shell scroller so the whole page is captured.
      Before a release, add WebKit, Firefox and phone emulation (`--browser`,
      `--device`), the visual diff against the approved baseline (`--baseline`),
      axe-core accessibility, and mobile Core Web Vitals (`--perf mobile`). See

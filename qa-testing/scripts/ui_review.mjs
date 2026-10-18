@@ -8,6 +8,12 @@
 // across lines, a lone card on the last grid row, forbidden words in visible copy, and
 // more than one primary button in a section.
 //
+// App shells that scroll inside an inner container (a full-height div with overflow-y:auto)
+// leave the document one viewport tall, so a full-page screenshot shows only the first
+// screen. Before the audit and capture, the largest such scroller is expanded to its full
+// height, along with its ancestors, and report.json records it. --no-expand-scroller turns
+// that off.
+//
 // Optional passes, merged into report.json with their own severities:
 //   --baseline <repo|dir>  visual diff against the last approved capture (ui_visual_diff.mjs)
 //   axe-core               WCAG rules on every capture when axe-core is installed (ui_a11y_perf.mjs)
@@ -23,7 +29,7 @@
 //     [--baseline <product-repo>] [--a11y auto|off] \
 //     [--perf mobile] [--perf-budget 300] [--perf-click "button.primary"] \
 //     [--forbid unit,TODO] [--primary ".btn-primary,[data-primary]"] \
-//     [--dismiss "Accept,ไม่อนุญาต"] [--slice 1400]
+//     [--dismiss "Accept,ไม่อนุญาต"] [--slice 1400] [--no-expand-scroller]
 // Playwright: resolved from PLAYWRIGHT_MODULE (path to the package) or `playwright`.
 
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -38,8 +44,10 @@ function parseArgs(argv) {
     browser: "chromium", device: "", baseline: "", a11y: "auto", perf: "off", "perf-budget": "300", "perf-click": "",
     "storage-state": "",
   };
+  let expandScroller = true;
   for (let i = 0; i < argv.length; i += 1) {
     const key = argv[i].replace(/^--/, "");
+    if (key === "no-expand-scroller") { expandScroller = false; continue; }
     const value = argv[i + 1];
     if (key === "url") args.url.push(value);
     else if (key in args) args[key] = value;
@@ -66,6 +74,7 @@ function parseArgs(argv) {
     perfClick: args["perf-click"],
     // Logged-in pages: a Playwright storage state saved by ui_login.mjs (kept outside the repo).
     storageState: args["storage-state"] || undefined,
+    expandScroller,
   };
 }
 
@@ -244,6 +253,54 @@ function auditPage({ forbid, primary, viewportWidth }) {
 }
 
 /**
+ * Runs in the page. When the document itself does not scroll but an inner container does
+ * (an app shell with height:100vh and overflow-y:auto), expands the largest such container
+ * and every ancestor so the document grows to the full content height. Returns what it
+ * changed, or null when the page scrolls normally.
+ */
+function expandInnerScroller() {
+  const doc = document.documentElement;
+  const vw = innerWidth;
+  let best = null;
+  for (const el of document.body ? document.body.querySelectorAll("*") : []) {
+    if (el.scrollHeight <= el.clientHeight + 1) continue;
+    const oy = getComputedStyle(el).overflowY;
+    if (oy !== "auto" && oy !== "scroll") continue;
+    const r = el.getBoundingClientRect();
+    if (r.width < vw * 0.6 || r.height <= 0) continue;
+    const hidden = el.scrollHeight - el.clientHeight;
+    if (!best || hidden > best.hidden) best = { el, hidden };
+  }
+  // Nothing worth expanding when the document already shows more than the scroller hides.
+  if (!best || doc.scrollHeight - innerHeight >= best.hidden) return null;
+  const selector = (el) => {
+    const parts = [];
+    for (let n = el; n && n !== doc; n = n.parentElement) {
+      if (n.id) { parts.unshift(`#${CSS.escape(n.id)}`); break; }
+      let part = n.tagName.toLowerCase();
+      const cls = typeof n.className === "string" ? n.className.split(/\s+/).filter(Boolean).slice(0, 2) : [];
+      if (cls.length) part += cls.map((c) => `.${CSS.escape(c)}`).join("");
+      const same = n.parentElement ? [...n.parentElement.children].filter((c) => c.tagName === n.tagName) : [];
+      if (same.length > 1) part += `:nth-of-type(${same.indexOf(n) + 1})`;
+      parts.unshift(part);
+      if (n === document.body) break;
+    }
+    return parts.join(" > ");
+  };
+  const el = best.el;
+  const info = { selector: selector(el), clientHeight: el.clientHeight, scrollHeight: el.scrollHeight, documentHeightBefore: doc.scrollHeight, ancestors: 0 };
+  for (let n = el; n; n = n.parentElement) {
+    n.style.setProperty("height", "auto", "important");
+    n.style.setProperty("max-height", "none", "important");
+    n.style.setProperty("min-height", "0", "important");
+    n.style.setProperty("overflow-y", "visible", "important");
+    if (n !== el) info.ancestors += 1;
+  }
+  info.documentHeightAfter = doc.scrollHeight;
+  return info;
+}
+
+/**
  * Pages that poll, stream or hold a socket never reach "networkidle". Load the page, then
  * wait for network idle for a bounded time, so a busy signed-in page is still captured.
  */
@@ -265,6 +322,8 @@ async function capture(browser, browserName, variant, url, opts, report, extras)
       if (await btn.count()) await btn.first().click().catch(() => {});
     }
     await page.waitForTimeout(400);
+    const scroller = opts.expandScroller ? await page.evaluate(expandInnerScroller).catch(() => null) : null;
+    if (scroller) await page.waitForTimeout(200);
     const audit = await page.evaluate(auditPage, { forbid: opts.forbid, primary: opts.primary, viewportWidth: variant.width });
     const a11y = extras.axe ? await axePass(page, extras.axe) : null;
     const base = captureBase(url, browserName, variant);
@@ -292,6 +351,7 @@ async function capture(browser, browserName, variant, url, opts, report, extras)
       findings: [...audit.findings, ...(a11y ? a11y.findings : [])], screenshots: shots,
     };
     if (a11y) entry.a11y = a11y.summary;
+    if (scroller) entry.expandedScroller = scroller;
     // A redirect (most often to a sign-in page) means the page in scope was never reviewed.
     const finalUrl = page.url();
     entry.finalUrl = finalUrl;
@@ -395,6 +455,8 @@ function markdown(report, opts) {
   if (report.skipped.length) lines.push("");
   for (const p of report.pages) {
     lines.push(`## ${p.url} @ ${p.device || `${p.width}px`} (${p.browser}) — HTTP ${p.status}, ${p.height}px tall`);
+    const xs = p.expandedScroller;
+    if (xs) lines.push(`- expanded inner scroller \`${xs.selector}\` (${xs.clientHeight}px visible of ${xs.scrollHeight}px, plus ${xs.ancestors} ancestor(s)): page ${xs.documentHeightBefore}px → ${xs.documentHeightAfter}px; pass --no-expand-scroller to capture as rendered`);
     if (p.jsErrors.length) lines.push(`- **blocker** js-error: ${p.jsErrors[0]}`);
     for (const f of p.findings) lines.push(`- **${f.severity}** ${f.rule}: ${f.detail}${f.where ? ` (${f.where})` : ""}`);
     if (!p.findings.length && !p.jsErrors.length) lines.push("- no automated findings");
