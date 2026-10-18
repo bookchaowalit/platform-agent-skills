@@ -37,11 +37,20 @@ EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 EXCLUDED_ROOTS = [HOME / "solo-empire"]
 EXTRA_PROJECTS = {HOME / "nexatech-empire"}
 P1_FINDING = re.compile(r"^\s*(?:[-*]\s*)?\[P1\]\s*(.+)$")
-CODEX_COMMAND = ["review", "--uncommitted", "-c", 'sandbox_mode="read-only"', "-c", 'model_reasoning_effort="high"']
+CODEX_COMMAND = [
+    "review",
+    "--uncommitted",
+    "-c",
+    'sandbox_mode="read-only"',
+    "-c",
+    'model_reasoning_effort="high"',
+]
 
 
 def enabled_project(project: Path) -> bool:
-    return (project.parent == HOME and project.name.endswith("-hub")) or project in EXTRA_PROJECTS
+    return (
+        project.parent == HOME and project.name.endswith("-hub")
+    ) or project in EXTRA_PROJECTS
 
 
 def excluded(path: Path) -> bool:
@@ -49,7 +58,9 @@ def excluded(path: Path) -> bool:
 
 
 def git(repo: Path, *args: str) -> bytes:
-    return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, check=True, timeout=30).stdout
+    return subprocess.run(
+        ["git", "-C", str(repo), *args], capture_output=True, check=True, timeout=30
+    ).stdout
 
 
 def repo_root(path: Path) -> Path | None:
@@ -80,8 +91,14 @@ def edited_paths(transcript: str | None) -> list[Path]:
         if not isinstance(content, list):
             continue
         for item in content:
-            if isinstance(item, dict) and item.get("type") == "tool_use" and item.get("name") in EDIT_TOOLS:
-                raw = (item.get("input") or {}).get("file_path") or (item.get("input") or {}).get("notebook_path")
+            if (
+                isinstance(item, dict)
+                and item.get("type") == "tool_use"
+                and item.get("name") in EDIT_TOOLS
+            ):
+                raw = (item.get("input") or {}).get("file_path") or (
+                    item.get("input") or {}
+                ).get("notebook_path")
                 if isinstance(raw, str) and raw:
                     paths.append(Path(raw).expanduser())
     return paths
@@ -134,7 +151,10 @@ def run_review(repo: Path, report: Path) -> tuple[bool, str]:
     except subprocess.TimeoutExpired:
         return False, f"codex review timed out after {REVIEW_TIMEOUT}s"
     report.parent.mkdir(parents=True, exist_ok=True)
-    report.write_text((result.stdout or "") + "\n--- stderr ---\n" + (result.stderr or ""), encoding="utf-8")
+    report.write_text(
+        (result.stdout or "") + "\n--- stderr ---\n" + (result.stderr or ""),
+        encoding="utf-8",
+    )
     report.chmod(0o600)
     if result.returncode != 0:
         tail = " ".join((result.stderr or "").strip().splitlines()[-2:])[:200]
@@ -145,7 +165,9 @@ def run_review(repo: Path, report: Path) -> tuple[bool, str]:
 def gate(payload: dict[str, Any]) -> dict[str, Any]:
     if os.environ.get(DISABLE_ENV, "on").strip().lower() in {"off", "0", "false"}:
         return {}
-    project = Path(os.environ.get("CLAUDE_PROJECT_DIR") or payload.get("cwd") or os.getcwd()).resolve()
+    project = Path(
+        os.environ.get("CLAUDE_PROJECT_DIR") or payload.get("cwd") or os.getcwd()
+    ).resolve()
     if not enabled_project(project):
         return {}
 
@@ -155,7 +177,9 @@ def gate(payload: dict[str, Any]) -> dict[str, Any]:
         if root and not excluded(root) and root not in repos:
             repos.append(root)
 
-    session = hashlib.sha256(str(payload.get("session_id", "anonymous")).encode()).hexdigest()[:24]
+    session = hashlib.sha256(
+        str(payload.get("session_id", "anonymous")).encode()
+    ).hexdigest()[:24]
     state_file = STATE_DIR / f"{session}.json"
     try:
         state = json.loads(state_file.read_text(encoding="utf-8"))
@@ -165,14 +189,18 @@ def gate(payload: dict[str, Any]) -> dict[str, Any]:
     blocked: list[str] = state.setdefault("blocked", [])
     blocks = int(state.get("blocks", 0))
 
-    pending = [(repo, fp) for repo in repos if (fp := fingerprint(repo)) and fp not in seen]
+    pending = [
+        (repo, fp) for repo in repos if (fp := fingerprint(repo)) and fp not in seen
+    ]
     notes: list[str] = []
     problems: list[str] = []
     for repo, fp in pending[:MAX_REPOS_PER_STOP]:
         report = STATE_DIR / session / f"{repo.name}.md"
         if fp in blocked or blocks >= MAX_BLOCKS:
             seen.append(fp)
-            notes.append(f"{repo.name}: open [P1] findings after {blocks} attempt(s); see {report}")
+            notes.append(
+                f"{repo.name}: open [P1] findings after {blocks} attempt(s); see {report}"
+            )
             continue
         completed, review = run_review(repo, report)
         if not completed:
@@ -185,9 +213,13 @@ def gate(payload: dict[str, Any]) -> dict[str, Any]:
             continue
         blocked.append(fp)
         listed = "\n".join(f"  - [P1] {item}" for item in findings[:8])
-        problems.append(f"{repo} ({len(findings)} finding(s), report: {report}):\n{listed}")
+        problems.append(
+            f"{repo} ({len(findings)} finding(s), report: {report}):\n{listed}"
+        )
     if len(pending) > MAX_REPOS_PER_STOP:
-        notes.append(f"{len(pending) - MAX_REPOS_PER_STOP} more changed repo(s) will be reviewed at the next stop")
+        notes.append(
+            f"{len(pending) - MAX_REPOS_PER_STOP} more changed repo(s) will be reviewed at the next stop"
+        )
     if problems:
         state["blocks"] = blocks + 1
 
@@ -199,7 +231,8 @@ def gate(payload: dict[str, Any]) -> dict[str, Any]:
         return {
             "decision": "block",
             "reason": (
-                "Codex review found [P1] findings in uncommitted changes:\n" + "\n".join(problems)
+                "Codex review found [P1] findings in uncommitted changes:\n"
+                + "\n".join(problems)
                 + "\nVerify each finding against the code, fix the confirmed ones, and explain any you dispute before finishing."
             ),
         }
@@ -212,8 +245,10 @@ def main() -> int:
     try:
         payload = json.loads(sys.stdin.read() or "{}")
         output = gate(payload if isinstance(payload, dict) else {})
-    except Exception as exc:  # A broken hook must never trap the session.
-        output = {"systemMessage": f"Codex review hook error: {type(exc).__name__}: {str(exc)[:200]}"}
+    except Exception as exc:  # noqa: BLE001 - a broken hook must never trap the session
+        output = {
+            "systemMessage": f"Codex review hook error: {type(exc).__name__}: {str(exc)[:200]}"
+        }
     if output:
         print(json.dumps(output))
     return 0
