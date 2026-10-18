@@ -43,6 +43,7 @@ instructions have one source of truth and are not duplicated.
 - ai-product-delivery — production delivery for AI products and features
 - book-dev-engineering-loop — one-task Book Dev execution with repository isolation and approval gates
 - business-analysis — requirements, traceability, UAT, and benefits handoff
+- codex-review — read-only second-opinion review of the current diff by the Codex CLI, verified by Claude before reporting
 - client-discovery-and-proposals — qualified scope, proposal, pricing, and delivery handoff
 - content-distribution — evidence-backed content planning and measurement
 - data-engineering — governed lake-first data products, contracts, quality, lineage, and replay
@@ -79,6 +80,42 @@ task check        # python3 scripts/check_skills.py: every skill has valid SKILL
 Operational commands live in `platform-ops-cli` (legacy sibling name
 `ops-toolkit`); architecture documents live in `architecture-docs`. This
 repository has no runtime dependency on them or on the hub.
+
+## Install as a Claude Code plugin (the shared skill hub)
+
+This repository is also a Claude Code plugin marketplace (`.claude-plugin/marketplace.json`)
+holding one plugin, `solo`. GitHub hosts it, so every machine gets the same skills and gates
+from this repository and nothing depends on local symlinks. Skills appear as `/solo:<name>`.
+
+```text
+/plugin install solo --marketplace bookchaowalit/platform-agent-skills
+```
+
+Or declare it in `~/.claude/settings.json` (CLI and Desktop read the same file):
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "solo-empire": { "source": { "source": "github", "repo": "bookchaowalit/platform-agent-skills" } }
+  },
+  "enabledPlugins": { "solo@solo-empire": true }
+}
+```
+
+The plugin carries:
+
+| Part | Path | What it does |
+|---|---|---|
+| Skills | every `<name>/SKILL.md` at the root, plus `vendor/<name>/` | the skill packages listed above |
+| Codex review gate | `hooks/codex_review_stop.py` (Stop) | reviews uncommitted changes in `~/*-hub` and `~/nexatech-empire` repos with `codex review`; a `[P1]` finding blocks the turn (at most twice a session). It needs the `codex` CLI; without it the hook lets the turn end with a note |
+| UI review gate | `qa-testing/scripts/ui_review_gate.py` (PreToolUse on Bash) | blocks a push to the default branch that changes UI files until the full-page visual review is signed off |
+
+The plugin has no `version`, so Claude Code tracks the latest commit on `main`: a merge here
+reaches every machine on its next plugin update. Cloud sessions on claude.ai/code do not
+install plugins that a repository's `.claude/settings.json` declares, so this hub serves the
+CLI and the Desktop app; Codex keeps reading the same packages through `.agents/skills`.
+
+Validate the manifests with `npx -y @anthropic-ai/claude-code plugin validate ./`.
 
 ## Using the skills from a harness
 

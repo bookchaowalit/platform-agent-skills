@@ -1,0 +1,14 @@
+{
+  "name": "solo-empire",
+  "owner": { "name": "bookchaowalit" },
+  "metadata": {
+    "description": "Shared AI skills and agent gates for every Solo Empire repository and machine."
+  },
+  "plugins": [
+    {
+      "name": "solo",
+      "source": "./",
+      "description": "Every portable Solo Empire skill, the Codex review Stop gate and the UI review push gate."
+    }
+  ]
+}
