@@ -51,8 +51,9 @@ every test to evidence, and every gap to an owner.
   status, every pull request needs one of the two.
 - Logged-in pages: `scripts/ui_login.mjs` saves a session (mode 600, outside any repo).
   Pass it to `ui_review.mjs` and `ui_states.mjs` with `--storage-state`.
-- `scripts/ui_review_gate.py` is a PreToolUse hook. It blocks `vercel --prod` and
-  `gh pr merge` for unsigned UI changes. `UI_REVIEW_GATE=off` disables it.
+- `scripts/ui_review_gate.py` is a PreToolUse hook. It blocks `vercel --prod`,
+  `gh pr merge` and `git push` to the default branch for unsigned UI changes. A local
+  merge followed by a push is gated the same way. `UI_REVIEW_GATE=off` disables it.
 
 ## Handoff
 

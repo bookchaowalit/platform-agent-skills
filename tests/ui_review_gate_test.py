@@ -264,6 +264,66 @@ class GateTest(unittest.TestCase):
             )
             post.assert_not_called()
 
+    def use_bare_remote(self) -> None:
+        bare = Path(self.tmp.name) / "remote" / "web.git"
+        bare.parent.mkdir()
+        subprocess.run(
+            ["git", "init", "-q", "--bare", "-b", "main", str(bare)], check=True
+        )
+        sh(self.repo, "remote", "set-url", "origin", str(bare))
+        sh(self.repo, "push", "-q", "-u", "origin", "main")
+        sh(self.repo, "remote", "set-head", "origin", "main")
+
+    def deny_reason(self, command: str, cwd: Path | None = None) -> str | None:
+        decision = self.run_gate(command, cwd)
+        return (
+            decision["hookSpecificOutput"]["permissionDecisionReason"]
+            if decision
+            else None
+        )
+
+    def test_push_of_unsigned_ui_change_to_main_is_blocked(self) -> None:
+        self.use_bare_remote()
+        self.commit("src/app.css", ".a { color: red; }\n")
+        for command in (
+            "git push",
+            "git push origin main",
+            "git push -u origin HEAD:main",
+            "git push --force-with-lease origin main",
+        ):
+            self.assertIn("ships UI changes", self.deny_reason(command) or "", command)
+
+    def test_push_paths_that_pass(self) -> None:
+        self.use_bare_remote()
+        self.commit("src/lib/calc.ts", "export const c = 3;\n")
+        self.assertIsNone(
+            self.run_gate("git push origin main")
+        )  # no UI change since the remote tip
+        self.commit("src/app.css", ".a { color: red; }\n")
+        self.assertIsNone(
+            self.run_gate("git push origin main:feature/x")
+        )  # not the default branch
+        self.assertIsNone(self.run_gate("git push --dry-run origin main"))
+        self.assertEqual(self.signoff(), 0)
+        self.assertIsNone(self.run_gate("git push origin main"))  # signed off
+
+    def test_push_with_dash_c_from_elsewhere(self) -> None:
+        self.use_bare_remote()
+        self.commit("src/app.css", ".a { color: red; }\n")
+        other = Path(self.tmp.name) / "elsewhere"
+        other.mkdir()
+        self.assertIn(
+            "ships UI changes",
+            self.deny_reason(f"git -C {self.repo} push origin main", cwd=other) or "",
+        )
+        self.assertIn(
+            "ships UI changes",
+            self.deny_reason(
+                f"cd {self.repo} && git merge --ff-only x; git push", cwd=other
+            )
+            or "",
+        )
+
     def test_merge_target_parsing(self) -> None:
         self.assertEqual(
             ui_review_gate.gh_merge_target(

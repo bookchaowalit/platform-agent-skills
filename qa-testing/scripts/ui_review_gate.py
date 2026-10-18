@@ -5,7 +5,10 @@ Blocks a shell command that ships UI to users when the commit has UI changes nob
 signed off with ui_signoff.py:
 
 - ``vercel ... --prod`` / ``vercel promote`` (the checkout's HEAD is what ships);
-- ``gh pr merge`` (the PR head is what merges; PRs that touch no UI files pass).
+- ``gh pr merge`` (the PR head is what merges; PRs that touch no UI files pass);
+- ``git push`` to the remote's default branch (a local merge followed by a push, which
+  also triggers Git-based auto-deploys); pushes with no UI changes since the remote tip,
+  and pushes to other branches, pass.
 
 A local sign-off record or a ``ui-review`` = success commit status on GitHub (posted by
 ui_signoff.py from any machine) both count.
@@ -42,6 +45,7 @@ from ui_review_evidence import (
     repo_root,
     repo_slug,
     signed_shas,
+    ui_changes_between,
 )
 
 SPLIT = re.compile(r"\s*(?:&&|\|\||;|\|)\s*")
@@ -169,6 +173,121 @@ def check_merge(cwd: Path, target: str, repo_arg: str | None) -> str | None:
     return f"UI review gate: PR #{pr.get('number')} in {slug} changes UI ({shown}) and {head[:7]} has no visual review sign-off. {HOW_TO}"
 
 
+PUSH_VALUE_OPTIONS = {
+    "--repo",
+    "--receive-pack",
+    "--exec",
+    "-o",
+    "--push-option",
+    "--signed",
+}
+
+
+def git_push_target(tokens: list[str]) -> tuple[Path | None, str, list[str]] | None:
+    """For ``git [-C dir] push [options] [remote [refspec...]]``: (dir, remote, refspecs)."""
+    if not tokens or Path(tokens[0]).name != "git":
+        return None
+    rest, cdir = tokens[1:], None
+    while rest and rest[0].startswith("-"):
+        if rest[0] == "-C" and len(rest) > 1:
+            cdir = Path(os.path.expanduser(rest[1]))
+            rest = rest[2:]
+        elif rest[0] == "-c" and len(rest) > 1:
+            rest = rest[2:]
+        else:
+            rest = rest[1:]
+    if not rest or rest[0] != "push":
+        return None
+    positional: list[str] = []
+    args = rest[1:]
+    i = 0
+    while i < len(args):
+        tok = args[i]
+        if tok in {"--dry-run", "-n", "--delete", "-d"}:
+            return None  # nothing ships
+        if tok in PUSH_VALUE_OPTIONS:
+            i += 2
+            continue
+        if not tok.startswith("-"):
+            positional.append(tok)
+        i += 1
+    remote = positional[0] if positional else ""
+    return cdir, remote, positional[1:]
+
+
+def default_branch(root: Path, remote: str) -> str:
+    ref = git(
+        root, "symbolic-ref", "--quiet", f"refs/remotes/{remote}/HEAD", check=False
+    )
+    if ref:
+        return ref.rsplit("/", 1)[-1]
+    for name in ("main", "master"):
+        if git(
+            root,
+            "rev-parse",
+            "--verify",
+            "--quiet",
+            f"refs/remotes/{remote}/{name}",
+            check=False,
+        ):
+            return name
+    return "main"
+
+
+def check_push(
+    cwd: Path, cdir: Path | None, remote: str, refspecs: list[str]
+) -> str | None:
+    root = repo_root((cwd / cdir) if cdir else cwd)
+    if root is None or not repo_has_ui(root):
+        return None
+    current = git(root, "rev-parse", "--abbrev-ref", "HEAD", check=False)
+    if not remote:
+        upstream = git(root, "rev-parse", "--abbrev-ref", "@{u}", check=False)
+        remote = upstream.split("/", 1)[0] if "/" in upstream else "origin"
+        refspecs = (
+            [f"HEAD:{upstream.split('/', 1)[1]}"] if "/" in upstream else [current]
+        )
+    elif not refspecs:
+        refspecs = [current]
+    target = default_branch(root, remote)
+    slug = repo_slug(root)
+    for spec in refspecs:
+        src, _, dst = spec.lstrip("+").partition(":")
+        dst = (dst or src).removeprefix("refs/heads/")
+        if dst != target:
+            continue
+        sha = git(
+            root,
+            "rev-parse",
+            "--verify",
+            "--quiet",
+            f"{src or 'HEAD'}^{{commit}}",
+            check=False,
+        )
+        if not sha:
+            continue
+        remote_tip = git(
+            root,
+            "rev-parse",
+            "--verify",
+            "--quiet",
+            f"refs/remotes/{remote}/{target}",
+            check=False,
+        )
+        changed = (
+            ui_changes_between(root, remote_tip, sha)
+            if remote_tip
+            else ["(new branch)"]
+        )
+        if not changed:
+            continue
+        if covering_signoff(root, slug, sha) or github_status(slug, sha) == "success":
+            continue
+        shown = ", ".join(changed[:4]) + (" …" if len(changed) > 4 else "")
+        return f"UI review gate: pushing {sha[:7]} to {remote}/{target} in {slug} ships UI changes ({shown}) without a visual review sign-off. {HOW_TO}"
+    return None
+
+
 def main() -> int:
     if os.environ.get("UI_REVIEW_GATE", "").lower() == "off":
         return 0
@@ -190,6 +309,8 @@ def main() -> int:
                 reason = check_deploy(cwd)
             elif (merge := gh_merge_target(tokens)) is not None:
                 reason = check_merge(cwd, *merge)
+            elif (push := git_push_target(tokens)) is not None:
+                reason = check_push(cwd, *push)
             if reason:
                 deny(reason)
                 return 0
