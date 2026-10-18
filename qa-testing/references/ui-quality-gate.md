@@ -69,6 +69,11 @@ tests had passed:
    capture. It is refused with `--verdict fail`. The
    `ui_review_gate.py` hook blocks `vercel --prod` and `gh pr merge` for UI changes until
    that commit, or an ancestor with no UI changes after it, is signed off.
+   The sign-off also posts the GitHub commit status `ui-review`: `success`, or `failure`
+   for a fail verdict. The status shows on the pull request, and the gate accepts it from
+   any machine. A branch rule can require it, which needs a paid plan for private repos.
+   For a pull request that touches no UI files, post the status with
+   `scripts/ui_review_status.py --repo . --base origin/main` instead of reviewing.
 7. **After deploy,** capture the live URL again and look at it. Production data and
    production builds differ from local ones.
 

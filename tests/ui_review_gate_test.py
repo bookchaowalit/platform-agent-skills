@@ -40,7 +40,13 @@ class GateTest(unittest.TestCase):
         sh(self.repo, "remote", "add", "origin", "https://github.com/acme/web.git")
         self.commit("src/page.tsx", "export const a = 1;\n")
         self.env = mock.patch.dict(
-            os.environ, {"UI_REVIEW_STATE_DIR": str(self.state), "UI_REVIEW_GATE": ""}
+            os.environ,
+            {
+                "UI_REVIEW_STATE_DIR": str(self.state),
+                "UI_REVIEW_GATE": "",
+                # Never call the real GitHub API from tests.
+                "UI_REVIEW_GITHUB_STATUS": "off",
+            },
         )
         self.env.start()
         self.report = base / "report.json"
@@ -220,6 +226,43 @@ class GateTest(unittest.TestCase):
         self.assertEqual(self.signoff("--promote-baseline"), 0)
         self.assertEqual([p.name for p in (baselines / "x-375").iterdir()], ["00.png"])
         self.assertEqual((baselines / "x-375" / "00.png").read_bytes(), b"png moved")
+
+    def test_github_status_counts_for_deploy(self) -> None:
+        with mock.patch("ui_review_gate.github_status", return_value="success"):
+            self.assertIsNone(self.run_gate("vercel --prod"))
+        with mock.patch("ui_review_gate.github_status", return_value="failure"):
+            self.assertEqual(
+                self.run_gate("vercel --prod")["hookSpecificOutput"][
+                    "permissionDecision"
+                ],
+                "deny",
+            )
+
+    def test_signoff_posts_status_and_can_skip(self) -> None:
+        with mock.patch("ui_signoff.post_status", return_value=True) as post:
+            self.assertEqual(self.signoff(), 0)
+            slug, _sha, state, _desc = post.call_args.args
+            self.assertEqual((slug, state), ("acme/web", "success"))
+        with mock.patch("ui_signoff.post_status") as post:
+            self.assertEqual(self.signoff("--no-github-status"), 0)
+            post.assert_not_called()
+
+    def test_status_script_refuses_ui_changes_and_marks_others(self) -> None:
+        import ui_review_status
+
+        base = sh(self.repo, "rev-parse", "HEAD")
+        self.commit("src/lib/calc.ts", "export const c = 3;\n")
+        with mock.patch("ui_review_status.post_status", return_value=True) as post:
+            self.assertEqual(
+                ui_review_status.main(["--repo", str(self.repo), "--base", base]), 0
+            )
+            self.assertEqual(post.call_args.args[2], "success")
+        self.commit("src/new.css", ".b { color: blue; }\n")
+        with mock.patch("ui_review_status.post_status", return_value=True) as post:
+            self.assertEqual(
+                ui_review_status.main(["--repo", str(self.repo), "--base", base]), 1
+            )
+            post.assert_not_called()
 
     def test_merge_target_parsing(self) -> None:
         self.assertEqual(

@@ -46,6 +46,9 @@ every test to evidence, and every gap to an owner.
 - Production data or real payments in tests → stop for explicit approval.
 - Passing tests, overflow checks and agent summaries are not a UI review. Only a
   look at the rendered screenshots is, recorded with `ui_signoff.py`.
+- `ui_signoff.py` posts the GitHub commit status `ui-review`. For pull requests that
+  touch no UI files, use `ui_review_status.py`. Where a branch rule requires the
+  status, every pull request needs one of the two.
 - `scripts/ui_review_gate.py` is a PreToolUse hook. It blocks `vercel --prod` and
   `gh pr merge` for unsigned UI changes. `UI_REVIEW_GATE=off` disables it.
 
