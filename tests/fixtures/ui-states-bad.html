@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>UI states fixture</title>
+<style>
+  body { margin: 0; padding: 24px; font: 16px/1.6 sans-serif; background: #fff; color: #111; }
+  a:hover { color: #1db954; }                                   /* global link hover wins over the button */
+  .btn { display: inline-block; padding: 12px 20px; background: #1db954; color: #062b14; text-decoration: none; }
+  .no-ring:focus { outline: none; }                             /* focus removed, nothing replaces it */
+  .grey { color: #aaa; }                                        /* low contrast in every state */
+  .flat { padding: 12px; background: #eee; color: #111; border: 0; }  /* hover identical to default */
+  .dark { padding: 12px; background: #0a5c2c; color: #fff; border: 0; }
+  .dark:hover { background: #07431f; }
+  .good { padding: 12px; background: #0a5c2c; color: #fff; border: 0; }
+  .good:hover { background: #07431f; } .good:focus-visible { outline: 3px solid #000; }
+</style></head>
+<body>
+  <p><a class="btn" href="#a">ลงทุนเลย</a></p>
+  <p><button class="no-ring dark">ยืนยัน</button></p>
+  <p><a class="grey" href="#b">ลิงก์สีจาง</a></p>
+  <p><button class="flat">ปุ่มเรียบ</button></p>
+  <p><button class="good">ปุ่มดี</button></p>
+</body></html>
