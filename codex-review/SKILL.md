@@ -18,6 +18,9 @@ Run Codex as a read-only reviewer on the current git repo, then report its findi
 3. Run in the background (reviews can take several minutes) and save the output to the session scratchpad:
 
    ```bash
+   # use the session scratchpad directory when one is given, else a private temp dir
+   SCRATCHPAD="${SCRATCHPAD:-$(mktemp -d)}"
+
    # standard review (tested, outputs [P1]/[P2] findings with file:line)
    codex review --uncommitted \
      -c sandbox_mode='"read-only"' \

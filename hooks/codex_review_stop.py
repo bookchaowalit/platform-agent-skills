@@ -36,7 +36,7 @@ STATE_DIR = HOME / ".claude" / "hooks" / "state" / "codex-review"
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 EXCLUDED_ROOTS = [HOME / "solo-empire"]
 EXTRA_PROJECTS = {HOME / "nexatech-empire"}
-P1_FINDING = re.compile(r"^\s*(?:[-*]\s*)?\[P1\]\s*(.+)$")
+P1_FINDING = re.compile(r"^\s*(?:[-*]\s*)?\[P[01]\]\s*(.+)$")  # P0 and P1 block
 CODEX_COMMAND = [
     "review",
     "--uncommitted",
@@ -105,18 +105,29 @@ def edited_paths(transcript: str | None) -> list[Path]:
 
 
 def fingerprint(repo: Path) -> str:
-    """Hash of staged, unstaged and untracked changes; empty when clean."""
+    """Hash of the repository plus staged, unstaged and untracked changes; empty when clean."""
     try:
-        status = git(repo, "status", "--porcelain", "-uall")
-        if not status.strip():
+        status = git(repo, "status", "--porcelain", "-z", "-uall")
+        if not status.strip(b"\0").strip():
             return ""
-        digest = hashlib.sha256(status)
-        digest.update(git(repo, "diff", "HEAD", "--binary"))
+        digest = hashlib.sha256(str(repo.resolve()).encode() + b"\0" + status)
+        has_head = (
+            subprocess.run(
+                ["git", "-C", str(repo), "rev-parse", "--verify", "-q", "HEAD"],
+                capture_output=True,
+                check=False,
+            ).returncode
+            == 0
+        )
+        # A repository without a first commit diffs against the empty tree.
+        base = "HEAD" if has_head else "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+        digest.update(git(repo, "diff", base, "--binary"))
+        digest.update(git(repo, "diff", "--cached", base, "--binary"))
     except (OSError, subprocess.SubprocessError):
         return ""
-    for line in status.decode("utf-8", "replace").splitlines():
-        if line.startswith("?? "):
-            target = repo / line[3:].strip().strip('"')
+    for entry in status.split(b"\0"):
+        if entry.startswith(b"?? "):
+            target = repo / entry[3:].decode("utf-8", "surrogateescape")
             try:
                 digest.update(target.read_bytes() if target.is_file() else b"")
             except OSError:
@@ -159,7 +170,11 @@ def run_review(repo: Path, report: Path) -> tuple[bool, str]:
     if result.returncode != 0:
         tail = " ".join((result.stderr or "").strip().splitlines()[-2:])[:200]
         return False, f"codex review exited {result.returncode}: {tail or 'see report'}"
-    return True, result.stdout or ""
+    # Some Codex CLI releases print the review on stderr even on success.
+    review = result.stdout if (result.stdout or "").strip() else (result.stderr or "")
+    if not review.strip():
+        return False, "codex review returned no output"
+    return True, review
 
 
 def gate(payload: dict[str, Any]) -> dict[str, Any]:
