@@ -25,7 +25,7 @@ from typing import Any
 import yaml
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-NON_SKILL_DIRS = frozenset({"scripts", "tests", "docs", "node_modules", "vendor"})
+NON_SKILL_DIRS = frozenset({"scripts", "tests", "docs", "node_modules", "vendor", "hooks"})
 
 
 MAX_SKILL_LINES = 500

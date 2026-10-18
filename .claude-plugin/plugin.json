@@ -1,0 +1,13 @@
+{
+  "name": "solo",
+  "description": "Portable Solo Empire skills plus the Codex review and UI review gates.",
+  "author": {
+    "name": "bookchaowalit"
+  },
+  "repository": "https://github.com/bookchaowalit/platform-agent-skills",
+  "license": "Apache-2.0",
+  "skills": [
+    "./",
+    "./vendor/"
+  ]
+}

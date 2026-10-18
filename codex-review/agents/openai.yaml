@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex Review"
+  short_description: "Read-only second-opinion review by Codex"
+  default_prompt: "Use $codex-review to get an independent Codex review of the current changes."
