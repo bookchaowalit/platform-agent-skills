@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "solo-empire": {
+      "type": "http",
+      "url": "https://solo-empire-mcp-remote.bookchaowalit.workers.dev/mcp",
+      "headersHelper": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/mcp_auth_header.py\""
+    }
+  }
+}
