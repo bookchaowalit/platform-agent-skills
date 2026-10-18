@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -73,6 +74,66 @@ def repo_slug(repo: Path) -> str:
 
 def evidence_dir(slug: str) -> Path:
     return state_dir() / slug.replace("/", "__")
+
+
+def baseline_dir(slug: str) -> Path:
+    """Approved full-page slices per capture key, next to the sign-off evidence."""
+    return evidence_dir(slug) / "baselines"
+
+
+def promote_baseline(
+    folder: Path,
+    report: dict[str, Any],
+    sha: str,
+    signed_at: str,
+    report_dir: Path | None = None,
+) -> list[str]:
+    """Copy every capture's slices in report.json to <folder>/<key>/NN.png.
+
+    Replaces the previous baseline of each key and records where it came from in
+    <folder>/manifest.json. Screenshot paths that do not exist as written (ui_review.mjs
+    ran from another directory) are looked up next to the report. Returns the promoted
+    keys.
+    """
+
+    def locate(path: str) -> Path:
+        shot = Path(path)
+        if not shot.is_file() and report_dir is not None:
+            shot = report_dir / shot.name
+        return shot
+
+    folder.mkdir(parents=True, exist_ok=True)
+    manifest_path = folder / "manifest.json"
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        manifest = {}
+    promoted = []
+    for page in report.get("pages", []):
+        key = page.get("key")
+        shots = [locate(s) for s in page.get("screenshots", [])]
+        if not key or not shots or not all(s.is_file() for s in shots):
+            continue
+        target = folder / key
+        if target.is_dir():
+            shutil.rmtree(target)
+        target.mkdir(parents=True)
+        for index, shot in enumerate(shots):
+            shutil.copyfile(shot, target / f"{index:02d}.png")
+        manifest[key] = {
+            "url": page.get("url"),
+            "browser": page.get("browser", "chromium"),
+            "width": page.get("width"),
+            "device": page.get("device"),
+            "slices": len(shots),
+            "sha": sha,
+            "promoted_at": signed_at,
+        }
+        promoted.append(key)
+    manifest_path.write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    return promoted
 
 
 def write_evidence(slug: str, sha: str, record: dict[str, Any]) -> Path:

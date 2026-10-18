@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Visual baseline fixture</title>
+<style>
+  body { margin: 0; font: 16px/1.6 sans-serif; color: #111; background: #fff; }
+  main { padding: 24px; }
+  .card { border: 1px solid #ccc; border-radius: 8px; padding: 16px; margin: 16px 0; }
+  .price { font-size: 28px; font-weight: 700; }
+  .cta { display: inline-block; padding: 12px 20px; background: #0a5; color: #fff; border-radius: 6px; }
+  .changed .cta { background: #c30; }
+</style></head>
+<body><main>
+  <h1>Plans</h1>
+  <div class="card"><p>Starter</p><p class="price" id="price">$1,200</p><a class="cta" href="#a">Choose</a></div>
+  <div class="card"><p>Team</p><p class="price">$3,400</p><a class="cta" href="#b">Choose</a></div>
+  <div class="card"><p>Enterprise</p><p class="price">Talk to us</p></div>
+</main>
+<script>
+  // ?v=2 is the "after" version: one price and the button colour change.
+  if (new URLSearchParams(location.search).get("v") === "2") {
+    document.getElementById("price").textContent = "$1,450";
+    document.body.classList.add("changed");
+  }
+</script>
+</body></html>

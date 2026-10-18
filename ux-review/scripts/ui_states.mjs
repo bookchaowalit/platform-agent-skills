@@ -13,18 +13,19 @@
 //
 // Usage:
 //   node ui_states.mjs --url https://host/page [--url ...] [--widths 375,1440]
+//     [--browser chromium,webkit,firefox] [--device iphone,android]
 //     [--out ./ui-states] [--max 150] [--dismiss "Accept"]
 // Playwright: resolved from PLAYWRIGHT_MODULE (path to the package) or `playwright`.
+// Browser and device handling is shared with qa-testing (../../qa-testing/scripts/ui_browsers.mjs).
 
-import { createRequire } from "node:module";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { captureBase, launchAll, loadPlaywright, parseBrowsers, unsupported, variants } from "../../qa-testing/scripts/ui_browsers.mjs";
 
-const require = createRequire(import.meta.url);
 const CONTROLS = "a[href],button,[role=button],[role=tab],[role=menuitem],summary,input:not([type=hidden]),select,textarea";
 
 function parseArgs(argv) {
-  const args = { url: [], widths: "375,1440", out: "ui-states", max: "150", dismiss: "" };
+  const args = { url: [], widths: "375,1440", out: "ui-states", max: "150", dismiss: "", browser: "chromium", device: "" };
   for (let i = 0; i < argv.length; i += 2) {
     const key = argv[i].replace(/^--/, "");
     if (key === "url") args.url.push(argv[i + 1]);
@@ -38,10 +39,10 @@ function parseArgs(argv) {
     out: args.out,
     max: Number(args.max) || 150,
     dismiss: args.dismiss.split(",").map((s) => s.trim()).filter(Boolean),
+    browsers: parseBrowsers(args.browser),
+    devices: args.device,
   };
 }
-
-const slug = (url) => (() => { const u = new URL(url); return `${u.host}${u.pathname}`; })().replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_|_$/g, "") || "page";
 
 /** In-page: tag visible controls with data-uistate-id and return their count. */
 function tagControls({ selector, max }) {
@@ -148,14 +149,19 @@ function judge(def, hover, focus, active) {
 
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
-  const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
+  const pw = loadPlaywright();
+  const list = variants(pw, opts.widths, opts.devices);
   mkdirSync(opts.out, { recursive: true });
-  const browser = await chromium.launch();
+  const { launched, failed } = await launchAll(pw, opts.browsers);
+  const skipped = failed.map((f) => ({ browser: f.name, reason: `cannot launch: ${f.error}` }));
   const results = [];
   try {
-    for (const url of opts.urls) {
-      for (const width of opts.widths) {
-        const ctx = await browser.newContext({ viewport: { width, height: 900 } });
+    for (const { name: browserName, browser } of launched) for (const url of opts.urls) {
+      for (const variant of list) {
+        const why = unsupported(browserName, variant);
+        if (why) { skipped.push({ browser: browserName, url, variant: variant.label, reason: why }); continue; }
+        const { width } = variant;
+        const ctx = await browser.newContext(variant.options);
         const page = await ctx.newPage();
         await page.goto(url, { waitUntil: "networkidle", timeout: 60000 });
         for (const name of opts.dismiss) {
@@ -200,37 +206,42 @@ async function main() {
             const shots = [];
             for (const flag of flags) {
               if (flag.state === "hover") await loc.hover({ timeout: 2000 }).catch(() => {});
-              const file = join(opts.out, `${slug(url)}-${width}-c${id}-${flag.rule}.png`);
+              const file = join(opts.out, `${captureBase(url, browserName, variant)}-c${id}-${flag.rule}.png`);
               await loc.screenshot({ path: file, timeout: 2000 }).catch(() => {});
               if (!shots.includes(file)) shots.push(file);
               await page.mouse.move(0, 0);
             }
-            results.push({ url, width, id, element: `${def.tag}${def.cls ? `.${def.cls}` : ""}`, text: def.text, y: def.y, default: def, hover, focus, active, flags, screenshots: shots });
+            results.push({ url, width, browser: browserName, device: variant.device, id, element: `${def.tag}${def.cls ? `.${def.cls}` : ""}`, text: def.text, y: def.y, default: def, hover, focus, active, flags, screenshots: shots });
           } catch (error) {
-            results.push({ url, width, id, error: String(error.message || error).slice(0, 120), flags: [] });
+            results.push({ url, width, browser: browserName, device: variant.device, id, error: String(error.message || error).slice(0, 120), flags: [] });
           }
         }
         await ctx.close();
       }
     }
   } finally {
-    await browser.close();
+    for (const { browser } of launched) await browser.close();
   }
   const flagged = results.filter((r) => r.flags.length);
   const counts = {};
   for (const r of flagged) for (const f of r.flags) counts[f.rule] = (counts[f.rule] || 0) + 1;
-  writeFileSync(join(opts.out, "states.json"), `${JSON.stringify({ created: new Date().toISOString(), counts, results }, null, 2)}\n`);
+  writeFileSync(join(opts.out, "states.json"), `${JSON.stringify({ created: new Date().toISOString(), browsers: opts.browsers, counts, skipped, results }, null, 2)}\n`);
   const lines = ["# Interaction states", "", `Controls checked: ${results.length} · flagged: ${flagged.length}`, "",
     ...Object.entries(counts).map(([rule, n]) => `- ${rule}: ${n}`), "",
-    "Open each screenshot; contrast on gradients and images is not measured (gradient=true).", ""];
+    "Open each screenshot; contrast on gradients and images is not measured (gradient=true).", "",
+    ...skipped.map((s) => `- skipped ${s.browser}${s.url ? ` ${s.url} ${s.variant}` : ""}: ${s.reason}`), ""];
   for (const r of flagged) {
-    lines.push(`## ${r.url} @ ${r.width}px — ${r.element} "${r.text}" (y=${r.y})`);
+    lines.push(`## ${r.url} @ ${r.device || `${r.width}px`} (${r.browser}) — ${r.element} "${r.text}" (y=${r.y})`);
     for (const f of r.flags) lines.push(`- **${f.rule}** (${f.state}): ${f.detail}`);
     if (r.screenshots.length) lines.push(`- screenshots: ${r.screenshots.map((s) => s.split("/").pop()).join(", ")}`);
     lines.push("");
   }
   writeFileSync(join(opts.out, "report.md"), `${lines.join("\n")}\n`);
-  console.log(`ui_states: ${results.length} controls, ${flagged.length} flagged → ${opts.out}/report.md`);
+  if (!launched.length) {
+    console.error(`ui_states: no browser could start (${skipped.map((s) => `${s.browser}: ${s.reason}`).join("; ")})`);
+    process.exit(2);
+  }
+  console.log(`ui_states: ${results.length} controls, ${flagged.length} flagged → ${opts.out}/report.md${skipped.length ? ` (${skipped.length} skipped)` : ""}`);
 }
 
 main().catch((error) => { console.error(`ui_states: ${error.message}`); process.exit(2); });

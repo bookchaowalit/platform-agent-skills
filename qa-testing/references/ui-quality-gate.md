@@ -26,7 +26,11 @@ tests had passed:
    components (list, detail, compare, dashboard). If someone points at one box, review the
    whole page and its siblings for the same class of problem, not just the box in the
    screenshot.
-2. **Widths:** 375 and 1440 always. Add 320, 768 and 1024 for any layout or CSS change.
+2. **Widths, browsers and devices:** 375 and 1440 always. Add 320, 768 and 1024 for any
+   layout or CSS change. Run Chromium always. Before a release, also run WebKit (Safari
+   and every iOS browser) and Firefox, and emulate a real phone with `--device
+   iphone,android`. Setting up the browsers, including on WSL without sudo, is covered in
+   `browsers-and-tools.md`.
 3. **Capture:** use `scripts/ui_review.mjs`. It takes full-page screenshots sliced into
    readable images and lists automated hints:
    - overflow;
@@ -42,15 +46,27 @@ tests had passed:
    ```bash
    PLAYWRIGHT_MODULE=/path/to/node_modules/playwright \
    node scripts/ui_review.mjs --url https://host/page --url https://host/other \
-     --widths 320,375,768,1024,1440 --out ./tmp/ui-review --forbid unit,TODO --dismiss "Accept"
+     --widths 320,375,768,1024,1440 --out ./tmp/ui-review --forbid unit,TODO --dismiss "Accept" \
+     --browser chromium,webkit,firefox --device iphone,android \
+     --baseline . --perf mobile
    ```
-4. **Look:** open every slice and read every section against sections 1–4 below. The
-   automated hints are not a verdict. Passing tests, "no overflow" or an agent's summary
+
+   The same run adds three passes, each merged into `report.json` with its own
+   severity. Section 5 covers them:
+   - `--baseline <repo>` compares the capture with the last approved one;
+   - axe-core checks accessibility on every capture when it is installed;
+   - `--perf mobile` measures Core Web Vitals on a throttled phone.
+4. **Look:** open every slice and read every section against sections 1–5 below. When a
+   baseline exists, start with the "Visual changes" list at the top of `report.md`: each
+   changed region has a diff image (changes in red, boxed). Every changed region must be
+   intended. The automated hints are not a verdict. Passing tests, "no overflow" or an agent's summary
    ("scanned", "checked") never count as a visual review.
 5. **Fix, then capture again,** until no blocker is left and every major finding is either
    fixed or recorded for the owner.
 6. **Sign off** on the exact commit you reviewed with `scripts/ui_signoff.py`
-   (`--verdict pass|pass-with-notes|fail`, with notes that say what you looked at). The
+   (`--verdict pass|pass-with-notes|fail`, with notes that say what you looked at). Add
+   `--promote-baseline` so the reviewed slices become the approved baseline for the next
+   capture. It is refused with `--verdict fail`. The
    `ui_review_gate.py` hook blocks `vercel --prod` and `gh pr merge` for UI changes until
    that commit, or an ancestor with no UI changes after it, is signed off.
 7. **After deploy,** capture the live URL again and look at it. Production data and
@@ -133,6 +149,58 @@ For pages that show money, returns, prices or quotas:
 | Wrapping | Brackets, units and amounts never split across lines (`white-space: nowrap` on the bracket or value). Pills that can wrap use a rounded rectangle, not a pill shape. |
 | Language | No bare English words in Thai copy ("unit", "status") unless they are glossary terms. Data from the API counts too: fix it at the source. |
 
+## 5. Visual baseline, accessibility and performance
+
+### Visual baseline
+
+- Baselines live outside the product repository, next to the sign-off evidence, in
+  `$UI_REVIEW_STATE_DIR/<owner>__<repo>/baselines/<capture-key>/NN.png`, with a
+  `manifest.json` that records the commit and the time of each promotion.
+- A capture key is URL × browser × width or device. Each key is compared slice by slice
+  against its baseline. The diff runs in the browser itself (YIQ colour distance per
+  pixel, 16px cells, touching cells merged into rectangles), so it needs no image
+  library.
+- `report.md` lists only the changed captures, with each region in page coordinates and
+  its diff image. `report.json` has `visual.status` (`new`, `same` or `changed`), the
+  regions and the diff files for each page.
+- A `visual-change` finding is minor. It is a pointer to look at, not a defect. A height
+  change shifts everything below it, so start with the first region.
+
+### Accessibility (axe-core)
+
+Runs on every capture when axe-core is installed next to Playwright, with the WCAG 2.0,
+2.1 and 2.2 A and AA rules. Turn it off with `--a11y off`. Each violated rule becomes a
+finding named `a11y:<rule-id>`:
+
+| axe impact | Finding severity | Typical rules |
+| --- | --- | --- |
+| critical | blocker | image-alt, label, button-name |
+| serious | major | color-contrast, link-name |
+| moderate, minor | minor | landmark and heading structure |
+
+axe only finds what can be computed. Keyboard order, focus traps, screen-reader wording
+and contrast on images still need a person (ux-review P8 and P8b).
+
+### Performance (`--perf mobile`)
+
+Each URL is loaded once more in Chromium as a mid-range Android phone. The connection
+has 150 ms RTT, 1.6 Mbps down and 750 kbps up, and the CPU is 4× slower: Lighthouse's
+mobile profile.
+
+| Metric | Pass (good) | Poor | Severity over good / over poor |
+| --- | --- | --- | --- |
+| LCP | ≤ 2.5 s | > 4 s | minor / major |
+| CLS | ≤ 0.1 | > 0.25 | minor / major |
+| TBT (lab stand-in for INP) | ≤ 200 ms | > 600 ms | minor / major |
+| INP (one keyboard interaction, or a click on `--perf-click`) | ≤ 200 ms | > 500 ms | minor / major |
+| JavaScript transferred | ≤ `--perf-budget` KB (default 300) | > 2× budget | minor / major |
+
+- One lab run is noisy. Re-run a borderline value before acting on it.
+- On a live site, field data (CrUX or RUM) has the last word.
+- Measure production builds. A dev server is always slow and its numbers mean nothing.
+- For a deeper look at one page, run Lighthouse itself:
+  `npx lighthouse <url> --form-factor=mobile`.
+
 ## Output
 
 Report per check area:
@@ -140,7 +208,8 @@ Report per check area:
 - pass / fail, with the evidence (screenshot path, selector, computed value);
 - each finding: screen, width, current, expected or proposed, severity
   (blocker = a client cannot read or find something; major; minor);
-- what could not be checked and why (login, data, feature flag).
+- what could not be checked and why (login, data, feature flag, a browser that could
+  not start).
 
 A UI change is not done while any blocker in this gate is open, or before the commit is signed off after an actual look at the screenshots. Business decisions
 (menu priority, terminology chosen by the client) are flagged for the owner, not decided

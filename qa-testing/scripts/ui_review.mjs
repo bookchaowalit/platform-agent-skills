@@ -1,12 +1,17 @@
 #!/usr/bin/env node
 // Full-page visual review capture and automated audit for the UI quality gate.
 //
-// Captures every URL at every width as full-page screenshots (sliced so each image is
-// readable), then measures what the eye tends to miss:
-// horizontal overflow, text under 12px, tap targets under 44px, long text blocks,
-// the same money figure repeated, mixed money precision, bracketed labels split
-// across lines, a lone card on the last grid row, forbidden words in visible copy,
-// and more than one primary button in a section.
+// Captures every URL at every width (and emulated device, in every chosen browser) as
+// full-page screenshots, sliced so each image is readable, then measures what the eye
+// tends to miss: horizontal overflow, text under 12px, tap targets under 44px, long text
+// blocks, the same money figure repeated, mixed money precision, bracketed labels split
+// across lines, a lone card on the last grid row, forbidden words in visible copy, and
+// more than one primary button in a section.
+//
+// Optional passes, merged into report.json with their own severities:
+//   --baseline <repo|dir>  visual diff against the last approved capture (ui_visual_diff.mjs)
+//   axe-core               WCAG rules on every capture when axe-core is installed (ui_a11y_perf.mjs)
+//   --perf mobile          throttled mobile Core Web Vitals and JS bytes per URL (Chromium)
 //
 // The audit only points at problems. The reviewer still looks at every slice and
 // records the verdict with ui_signoff.py; passing this script is not a UX sign-off.
@@ -14,18 +19,24 @@
 // Usage:
 //   node ui_review.mjs --url https://example.com/a --url https://example.com/b \
 //     [--widths 320,375,768,1024,1440] [--out ./ui-review] \
+//     [--browser chromium,webkit,firefox] [--device iphone,android] \
+//     [--baseline <product-repo>] [--a11y auto|off] \
+//     [--perf mobile] [--perf-budget 300] [--perf-click "button.primary"] \
 //     [--forbid unit,TODO] [--primary ".btn-primary,[data-primary]"] \
 //     [--dismiss "Accept,ไม่อนุญาต"] [--slice 1400]
 // Playwright: resolved from PLAYWRIGHT_MODULE (path to the package) or `playwright`.
 
-import { createRequire } from "node:module";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-
-const require = createRequire(import.meta.url);
+import { axePass, axeSource, perfPass } from "./ui_a11y_perf.mjs";
+import { captureBase, launchAll, loadPlaywright, parseBrowsers, unsupported, variants } from "./ui_browsers.mjs";
+import { compareCapture, resolveBaselineDir } from "./ui_visual_diff.mjs";
 
 function parseArgs(argv) {
-  const args = { url: [], widths: "320,375,768,1024,1440", out: "ui-review", forbid: "", primary: "", dismiss: "", slice: "1400" };
+  const args = {
+    url: [], widths: "320,375,768,1024,1440", out: "ui-review", forbid: "", primary: "", dismiss: "", slice: "1400",
+    browser: "chromium", device: "", baseline: "", a11y: "auto", perf: "off", "perf-budget": "300", "perf-click": "",
+  };
   for (let i = 0; i < argv.length; i += 1) {
     const key = argv[i].replace(/^--/, "");
     const value = argv[i + 1];
@@ -35,6 +46,8 @@ function parseArgs(argv) {
     i += 1;
   }
   if (!args.url.length) throw new Error("at least one --url is required");
+  if (!["auto", "off"].includes(args.a11y)) throw new Error("--a11y takes auto or off");
+  if (!["off", "mobile"].includes(args.perf)) throw new Error("--perf takes mobile or off");
   return {
     urls: args.url,
     widths: args.widths.split(",").map(Number).filter(Boolean),
@@ -43,16 +56,18 @@ function parseArgs(argv) {
     primary: args.primary || ".button-primary,.btn-primary,[data-primary=\"true\"],button[type=submit].primary",
     dismiss: args.dismiss.split(",").map((s) => s.trim()).filter(Boolean),
     slice: Number(args.slice) || 1400,
+    browsers: parseBrowsers(args.browser),
+    devices: args.device,
+    baseline: args.baseline,
+    a11y: args.a11y,
+    perf: args.perf,
+    perfBudget: Number(args["perf-budget"]) || 300,
+    perfClick: args["perf-click"],
   };
 }
 
-function slug(url) {
-  const { host, pathname } = new URL(url);
-  return `${host}${pathname}`.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_|_$/g, "") || "page";
-}
-
 /** Runs in the page. Visible text only: screen-reader-only and hidden nodes are skipped. */
-function auditPage({ forbid, primary }) {
+function auditPage({ forbid, primary, viewportWidth }) {
   const findings = [];
   const add = (severity, rule, detail, el) => {
     let where = "";
@@ -74,7 +89,8 @@ function auditPage({ forbid, primary }) {
     return false;
   };
   const root = document.querySelector("main") || document.body;
-  const vw = innerWidth;
+  // Mobile emulation zooms a too-wide page out, so innerWidth grows; judge against the device width.
+  const vw = viewportWidth || innerWidth;
 
   // 1. Horizontal overflow
   if (document.documentElement.scrollWidth > vw + 1) add("blocker", "page-overflow", `page is ${document.documentElement.scrollWidth}px wide in a ${vw}px viewport`);
@@ -184,56 +200,132 @@ function auditPage({ forbid, primary }) {
   return { height: document.documentElement.scrollHeight, scrollWidth: document.documentElement.scrollWidth, findings };
 }
 
-async function main() {
-  const opts = parseArgs(process.argv.slice(2));
-  const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
-  mkdirSync(opts.out, { recursive: true });
-  const browser = await chromium.launch();
-  const report = { created: new Date().toISOString(), widths: opts.widths, pages: [] };
+async function capture(browser, browserName, variant, url, opts, report, extras) {
+  const ctx = await browser.newContext(variant.options);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(e.message.slice(0, 160)));
   try {
-    for (const url of opts.urls) {
-      for (const width of opts.widths) {
-        const ctx = await browser.newContext({ viewport: { width, height: 900 } });
-        const page = await ctx.newPage();
-        const errors = [];
-        page.on("pageerror", (e) => errors.push(e.message.slice(0, 160)));
-        const res = await page.goto(url, { waitUntil: "networkidle", timeout: 60000 });
-        for (const name of opts.dismiss) {
-          const btn = page.getByRole("button", { name, exact: true });
-          if (await btn.count()) await btn.first().click().catch(() => {});
-        }
-        await page.waitForTimeout(400);
-        const audit = await page.evaluate(auditPage, { forbid: opts.forbid, primary: opts.primary });
-        const base = `${slug(url)}-${width}`;
-        const shots = [];
-        for (let y = 0, i = 0; y < audit.height; y += opts.slice, i += 1) {
-          const file = join(opts.out, `${base}-${String(i).padStart(2, "0")}.png`);
-          await page.screenshot({ path: file, fullPage: true, clip: { x: 0, y, width, height: Math.min(opts.slice, audit.height - y) } });
-          shots.push(file);
-        }
-        report.pages.push({ url, width, status: res ? res.status() : null, height: audit.height, jsErrors: errors, findings: audit.findings, screenshots: shots });
-        await ctx.close();
+    const res = await page.goto(url, { waitUntil: "networkidle", timeout: 60000 });
+    for (const name of opts.dismiss) {
+      const btn = page.getByRole("button", { name, exact: true });
+      if (await btn.count()) await btn.first().click().catch(() => {});
+    }
+    await page.waitForTimeout(400);
+    const audit = await page.evaluate(auditPage, { forbid: opts.forbid, primary: opts.primary, viewportWidth: variant.width });
+    const a11y = extras.axe ? await axePass(page, extras.axe) : null;
+    const base = captureBase(url, browserName, variant);
+    const shots = [];
+    for (let y = 0, i = 0; y < audit.height; y += opts.slice, i += 1) {
+      const file = join(opts.out, `${base}-${String(i).padStart(2, "0")}.png`);
+      await page.screenshot({ path: file, fullPage: true, animations: "disabled", caret: "hide", clip: { x: 0, y, width: variant.width, height: Math.min(opts.slice, audit.height - y) } });
+      shots.push(file);
+    }
+    const entry = {
+      url, width: variant.width, browser: browserName, device: variant.device, key: base,
+      deviceScaleFactor: variant.options.deviceScaleFactor || 1,
+      status: res ? res.status() : null, height: audit.height, jsErrors: errors,
+      findings: [...audit.findings, ...(a11y ? a11y.findings : [])], screenshots: shots,
+    };
+    if (a11y) entry.a11y = a11y.summary;
+    if (extras.baselineDir) {
+      const visual = await compareCapture(browser, { baselineDir: extras.baselineDir, key: base, screenshots: shots, sliceHeight: opts.slice, scale: entry.deviceScaleFactor, outDir: opts.out });
+      entry.visual = visual;
+      if (visual.status === "changed") {
+        const top = visual.regions[0];
+        entry.findings.push({ severity: "minor", rule: "visual-change", detail: `${visual.regions.length} changed region(s) vs the approved baseline; first at x=${top.x} y=${top.y} ${top.width ?? "?"}×${top.height ?? "?"} — look at ${visual.diffImages.map((f) => f.split("/").pop()).join(", ") || "the slice list"}`, where: "", source: "visual" });
       }
     }
+    report.pages.push(entry);
   } finally {
-    await browser.close();
+    await ctx.close();
+  }
+}
+
+async function main() {
+  const opts = parseArgs(process.argv.slice(2));
+  const pw = loadPlaywright();
+  const list = variants(pw, opts.widths, opts.devices);
+  mkdirSync(opts.out, { recursive: true });
+  const axe = opts.a11y === "auto" ? axeSource() : null;
+  const baselineDir = opts.baseline ? resolveBaselineDir(opts.baseline) : "";
+  const report = {
+    created: new Date().toISOString(), widths: opts.widths, browsers: opts.browsers, devices: list.filter((v) => v.device).map((v) => v.device),
+    a11y: axe ? "axe-core" : `skipped (${opts.a11y === "off" ? "--a11y off" : "axe-core not installed next to Playwright; set AXE_CORE_PATH"})`,
+    baselineDir: baselineDir || null, pages: [], skipped: [], perf: [],
+  };
+  const needed = opts.perf === "mobile" && !opts.browsers.includes("chromium") ? [...opts.browsers, "chromium"] : opts.browsers;
+  const { launched, failed } = await launchAll(pw, needed);
+  for (const f of failed) report.skipped.push({ browser: f.name, reason: `cannot launch: ${f.error}` });
+  try {
+    for (const { name, browser } of launched.filter((b) => opts.browsers.includes(b.name))) {
+      for (const url of opts.urls) {
+        for (const variant of list) {
+          const why = unsupported(name, variant);
+          if (why) { report.skipped.push({ browser: name, url, variant: variant.label, reason: why }); continue; }
+          await capture(browser, name, variant, url, opts, report, { axe, baselineDir });
+        }
+      }
+    }
+    const chromium = launched.find((b) => b.name === "chromium");
+    if (opts.perf === "mobile") {
+      if (!chromium) report.skipped.push({ browser: "chromium", reason: "--perf needs Chromium" });
+      else for (const url of opts.urls) report.perf.push(await perfPass(pw, chromium.browser, url, { budgetKb: opts.perfBudget, click: opts.perfClick, dismiss: opts.dismiss }));
+    }
+  } finally {
+    for (const { browser } of launched) await browser.close();
   }
   const counts = { blocker: 0, major: 0, minor: 0 };
   for (const p of report.pages) { for (const f of p.findings) counts[f.severity] += 1; if (p.jsErrors.length || (p.status && p.status >= 400)) counts.blocker += 1; }
+  for (const r of report.perf) for (const f of r.findings) counts[f.severity] += 1;
   report.counts = counts;
+  report.visual = baselineDir ? {
+    changed: report.pages.filter((p) => p.visual?.status === "changed").map((p) => p.key),
+    new: report.pages.filter((p) => p.visual?.status === "new").map((p) => p.key),
+    same: report.pages.filter((p) => p.visual?.status === "same").length,
+  } : null;
   writeFileSync(join(opts.out, "report.json"), `${JSON.stringify(report, null, 2)}\n`);
-  const lines = ["# UI review", "", `Created ${report.created} · widths ${opts.widths.join(", ")}`, "",
+  writeFileSync(join(opts.out, "report.md"), `${markdown(report, opts).join("\n")}\n`);
+  if (!report.pages.length) {
+    console.error(`ui_review: nothing captured (${report.skipped.map((s) => `${s.browser}: ${s.reason}`).join("; ")})`);
+    process.exit(2);
+  }
+  console.log(`ui_review: ${report.pages.length} captures → ${opts.out}/report.md (${counts.blocker} blocker, ${counts.major} major, ${counts.minor} minor)${report.skipped.length ? `, ${report.skipped.length} skipped` : ""}`);
+}
+
+function markdown(report, opts) {
+  const { counts } = report;
+  const lines = ["# UI review", "",
+    `Created ${report.created} · widths ${opts.widths.join(", ")} · browsers ${opts.browsers.join(", ")}${report.devices.length ? ` · devices ${report.devices.join(", ")}` : ""} · accessibility: ${report.a11y}`, "",
     `Automated findings: ${counts.blocker} blocker · ${counts.major} major · ${counts.minor} minor`, "",
     "Look at every screenshot slice yourself; the automated rules are hints, not a verdict.", ""];
+  if (report.visual) {
+    lines.push("## Visual changes against the approved baseline", "",
+      `${report.visual.changed.length} changed · ${report.visual.new.length} without a baseline · ${report.visual.same} unchanged (baselines: ${report.baselineDir})`, "");
+    for (const p of report.pages.filter((x) => x.visual?.status === "changed")) {
+      lines.push(`- **${p.key}** (${p.url}, ${p.browser}, ${p.device || `${p.width}px`}):`);
+      for (const r of p.visual.regions.slice(0, 8)) lines.push(`  - slice ${r.slice}: x=${r.x} y=${r.y} ${r.width ?? "?"}×${r.height ?? "?"}${r.note ? ` — ${r.note}` : ""}${r.diff ? ` → ${r.diff.split("/").pop()}` : ""}`);
+      if (p.visual.regions.length > 8) lines.push(`  - … ${p.visual.regions.length - 8} more in report.json`);
+    }
+    if (report.visual.new.length) lines.push("", `No baseline yet (promote with ui_signoff.py --promote-baseline): ${report.visual.new.join(", ")}`);
+    lines.push("");
+  }
+  if (report.perf.length) {
+    lines.push("## Mobile performance (throttled, Chromium)", "", "| URL | LCP ms | CLS | TBT ms | INP ms | JS KB | pass |", "| --- | --- | --- | --- | --- | --- | --- |");
+    for (const r of report.perf) lines.push(`| ${r.url} | ${r.metrics.lcp} | ${r.metrics.cls} | ${r.metrics.tbt} | ${r.metrics.inp} | ${r.metrics.jsKb} | ${r.pass ? "yes" : "no"} |`);
+    for (const r of report.perf) for (const f of r.findings) lines.push(`- **${f.severity}** ${f.rule}: ${f.detail} (${r.url})`);
+    lines.push("");
+  }
+  for (const s of report.skipped) lines.push(`- skipped ${s.browser}${s.url ? ` ${s.url} ${s.variant}` : ""}: ${s.reason}`);
+  if (report.skipped.length) lines.push("");
   for (const p of report.pages) {
-    lines.push(`## ${p.url} @ ${p.width}px — HTTP ${p.status}, ${p.height}px tall`);
+    lines.push(`## ${p.url} @ ${p.device || `${p.width}px`} (${p.browser}) — HTTP ${p.status}, ${p.height}px tall`);
     if (p.jsErrors.length) lines.push(`- **blocker** js-error: ${p.jsErrors[0]}`);
     for (const f of p.findings) lines.push(`- **${f.severity}** ${f.rule}: ${f.detail}${f.where ? ` (${f.where})` : ""}`);
     if (!p.findings.length && !p.jsErrors.length) lines.push("- no automated findings");
     lines.push(`- slices: ${p.screenshots.map((s) => s.split("/").pop()).join(", ")}`, "");
   }
-  writeFileSync(join(opts.out, "report.md"), `${lines.join("\n")}\n`);
-  console.log(`ui_review: ${report.pages.length} page×width captures → ${opts.out}/report.md (${counts.blocker} blocker, ${counts.major} major, ${counts.minor} minor)`);
+  return lines;
 }
 
 main().catch((error) => { console.error(`ui_review: ${error.message}`); process.exit(2); });

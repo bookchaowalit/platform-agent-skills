@@ -18,6 +18,7 @@ summary.md                one page: verdict, top findings, fixes, owner decision
 06-flow-tests/
 07-pages/   (ui_review.mjs output) 07-page-findings.csv
 08-states/  (ui_states.mjs output) 08-state-findings.csv
+08b-perf/   (ui_review.mjs --perf mobile output) 08b-findings.csv
 09-copy.csv  09-readiness.md
 10-figures.csv  10-figures.md
 11-heuristics.csv  11-ia.csv  11-scores.md
@@ -39,6 +40,12 @@ the CSV, the fix commit and the summary.
 | blocker | cannot read, find, trust or complete a main use case; data wrong; leak | must fix |
 | major | slows, misleads or looks broken; inconsistent with the product's own rules | fix, or the owner accepts it in writing |
 | minor | polish | fix when touching the area |
+
+Automated findings map onto this scale:
+
+- the page audit and the visual diff in `report.json` already use it;
+- axe-core impact critical → blocker, serious → major, moderate or minor → minor;
+- `--perf mobile` gives minor above the good threshold and major above the poor one.
 
 ## Finding CSV columns
 
