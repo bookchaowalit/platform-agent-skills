@@ -269,9 +269,20 @@ async function capture(browser, browserName, variant, url, opts, report, extras)
     const a11y = extras.axe ? await axePass(page, extras.axe) : null;
     const base = captureBase(url, browserName, variant);
     const shots = [];
-    for (let y = 0, i = 0; y < audit.height; y += opts.slice, i += 1) {
+    // Slice against the height the browser will actually render: some engines (Firefox with
+    // device emulation) report a scrollHeight a few pixels taller than the full-page image.
+    const pageHeight = await page.evaluate(() => Math.min(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight || Infinity : Infinity)).catch(() => audit.height);
+    const sliceTo = Math.max(1, Math.min(audit.height, pageHeight || audit.height));
+    for (let y = 0, i = 0; y < sliceTo; y += opts.slice, i += 1) {
       const file = join(opts.out, `${base}-${String(i).padStart(2, "0")}.png`);
-      await page.screenshot({ path: file, fullPage: true, animations: "disabled", caret: "hide", clip: { x: 0, y, width: variant.width, height: Math.min(opts.slice, audit.height - y) } });
+      const height = Math.min(opts.slice, sliceTo - y);
+      try {
+        await page.screenshot({ path: file, fullPage: true, animations: "disabled", caret: "hide", clip: { x: 0, y, width: variant.width, height } });
+      } catch {
+        // Last resort: the remaining part as a plain viewport-sized capture at that offset.
+        await page.evaluate((top) => window.scrollTo(0, top), y);
+        await page.screenshot({ path: file, animations: "disabled", caret: "hide" });
+      }
       shots.push(file);
     }
     const entry = {
