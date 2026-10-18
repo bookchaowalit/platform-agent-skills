@@ -47,6 +47,16 @@ function insideGitRepo(path) {
   }
 }
 
+/**
+ * Pages that poll, stream or hold a socket never reach "networkidle". Load the page, then
+ * wait for network idle for a bounded time, so a busy signed-in page is still captured.
+ */
+async function gotoSettled(page, url) {
+  const res = await page.goto(url, { waitUntil: "load", timeout: 60000 });
+  await page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
+  return res;
+}
+
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
   const user = process.env[opts["user-env"]];
@@ -61,7 +71,7 @@ async function main() {
   try {
     const context = await browser.newContext();
     const page = await context.newPage();
-    await page.goto(opts.url, { waitUntil: "networkidle", timeout: 60000 });
+    await gotoSettled(page, opts.url);
     await page.locator(opts["user-selector"]).first().fill(user);
     await page.locator(opts["pass-selector"]).first().fill(pass);
     await Promise.all([

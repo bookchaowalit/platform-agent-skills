@@ -121,6 +121,21 @@ function auditPage({ forbid, primary, viewportWidth }) {
   const small = texts.filter(({ el }) => parseFloat(getComputedStyle(el).fontSize) < 12);
   if (small.length) add("major", "text-under-12px", `${small.length} text node(s), e.g. "${small[0].t.slice(0, 40)}"`, small[0].el);
 
+  // 2b. Crushed text: a heading or label squeezed so narrow it wraps every few characters
+  // (for example a 2-column grid inside a narrow app shell, or a badge eating a flex row).
+  const crushed = new Set();
+  for (const { t, el } of texts) {
+    if (t.length < 6 || crushed.has(el)) continue;
+    const cs = getComputedStyle(el);
+    const fs = parseFloat(cs.fontSize) || 16;
+    const lh = parseFloat(cs.lineHeight) || fs * 1.4;
+    const r = el.getBoundingClientRect();
+    if (r.width > 0 && r.width < fs * 4 && r.height > lh * 3.5) {
+      crushed.add(el);
+      add("major", "crushed-text", `"${t.slice(0, 30)}" is ${Math.round(r.width)}px wide and wraps into ~${Math.round(r.height / lh)} lines — its container is too narrow (check grid columns and flex siblings)`, el);
+    }
+  }
+
   // 3. Long text blocks inside cards/sections (wall of text)
   const BLOCK = "p,div,ul,ol,dl,dt,dd,li,section,article,table,h1,h2,h3,h4,h5,h6,details,form";
   const reported = new Set();
@@ -203,13 +218,23 @@ function auditPage({ forbid, primary, viewportWidth }) {
   return { height: document.documentElement.scrollHeight, scrollWidth: document.documentElement.scrollWidth, findings };
 }
 
+/**
+ * Pages that poll, stream or hold a socket never reach "networkidle". Load the page, then
+ * wait for network idle for a bounded time, so a busy signed-in page is still captured.
+ */
+async function gotoSettled(page, url) {
+  const res = await page.goto(url, { waitUntil: "load", timeout: 60000 });
+  await page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
+  return res;
+}
+
 async function capture(browser, browserName, variant, url, opts, report, extras) {
   const ctx = await browser.newContext({ ...variant.options, storageState: opts.storageState });
   const page = await ctx.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message.slice(0, 160)));
   try {
-    const res = await page.goto(url, { waitUntil: "networkidle", timeout: 60000 });
+    const res = await gotoSettled(page, url);
     for (const name of opts.dismiss) {
       const btn = page.getByRole("button", { name, exact: true });
       if (await btn.count()) await btn.first().click().catch(() => {});
@@ -231,6 +256,14 @@ async function capture(browser, browserName, variant, url, opts, report, extras)
       findings: [...audit.findings, ...(a11y ? a11y.findings : [])], screenshots: shots,
     };
     if (a11y) entry.a11y = a11y.summary;
+    // A redirect (most often to a sign-in page) means the page in scope was never reviewed.
+    const finalUrl = page.url();
+    entry.finalUrl = finalUrl;
+    const asked = new URL(url);
+    const landed = new URL(finalUrl);
+    if (asked.protocol !== "file:" && (asked.host !== landed.host || asked.pathname.replace(/\/$/, "") !== landed.pathname.replace(/\/$/, ""))) {
+      entry.findings.unshift({ severity: "blocker", rule: "redirected", detail: `asked for ${asked.pathname} but landed on ${landed.pathname}${landed.search} — sign in with --storage-state or check the route; this capture is not the page in scope`, where: "" });
+    }
     if (extras.baselineDir) {
       const visual = await compareCapture(browser, { baselineDir: extras.baselineDir, key: base, screenshots: shots, sliceHeight: opts.slice, scale: entry.deviceScaleFactor, outDir: opts.out });
       entry.visual = visual;
@@ -241,6 +274,9 @@ async function capture(browser, browserName, variant, url, opts, report, extras)
     }
     report.pages.push(entry);
   } finally {
+    // Apps that rotate refresh tokens invalidate the old session once it is used, so keep
+    // the session file current for the next context and the next run.
+    if (opts.storageState) await ctx.storageState({ path: opts.storageState }).catch(() => {});
     await ctx.close();
   }
 }

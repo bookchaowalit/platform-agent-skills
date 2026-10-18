@@ -19,7 +19,7 @@ const url = pathToFileURL(join(here, "fixtures", "ui-review-bad.html")).href;
 execFileSync("node", [join(here, "..", "qa-testing", "scripts", "ui_review.mjs"), "--url", url, "--widths", "375", "--out", out, "--forbid", "unit"], { stdio: "inherit" });
 const report = JSON.parse(readFileSync(join(out, "report.json"), "utf8"));
 const rules = new Set(report.pages.flatMap((p) => p.findings.map((f) => f.rule)));
-const expected = ["page-overflow", "element-overflow", "text-under-12px", "long-text-block", "repeated-figure", "mixed-money-precision", "forbidden-word", "split-bracket", "orphan-grid-item", "multiple-primary"];
+const expected = ["page-overflow", "element-overflow", "text-under-12px", "long-text-block", "repeated-figure", "mixed-money-precision", "forbidden-word", "split-bracket", "orphan-grid-item", "multiple-primary", "crushed-text"];
 const missing = expected.filter((rule) => !rules.has(rule));
 if (missing.length) {
   console.error(`ui_review fixture test: missing rules ${missing.join(", ")}`);

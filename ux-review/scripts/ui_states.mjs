@@ -148,6 +148,16 @@ function judge(def, hover, focus, active) {
   return flags;
 }
 
+/**
+ * Pages that poll, stream or hold a socket never reach "networkidle". Load the page, then
+ * wait for network idle for a bounded time, so a busy signed-in page is still captured.
+ */
+async function gotoSettled(page, url) {
+  const res = await page.goto(url, { waitUntil: "load", timeout: 60000 });
+  await page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
+  return res;
+}
+
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
   const pw = loadPlaywright();
@@ -164,7 +174,7 @@ async function main() {
         const { width } = variant;
         const ctx = await browser.newContext({ ...variant.options, storageState: opts.storageState });
         const page = await ctx.newPage();
-        await page.goto(url, { waitUntil: "networkidle", timeout: 60000 });
+        await gotoSettled(page, url);
         for (const name of opts.dismiss) {
           const btn = page.getByRole("button", { name, exact: true });
           if (await btn.count()) await btn.first().click().catch(() => {});
@@ -217,6 +227,9 @@ async function main() {
             results.push({ url, width, browser: browserName, device: variant.device, id, error: String(error.message || error).slice(0, 120), flags: [] });
           }
         }
+        // Apps that rotate refresh tokens invalidate the old session once it is used, so keep
+        // the session file current for the next context and the next run.
+        if (opts.storageState) await ctx.storageState({ path: opts.storageState }).catch(() => {});
         await ctx.close();
       }
     }
