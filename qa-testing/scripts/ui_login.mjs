@@ -11,6 +11,7 @@
 //     --out ~/.local/state/ui-review/sessions/<app>-<role>.json \
 //     [--user-selector "input[type=email]"] [--pass-selector "input[type=password]"] \
 //     [--submit-selector "button[type=submit]"] [--success "/dashboard"] \
+//     (always pass --success when you know the landing path; it is the strongest check)
 //     [--user-env NAME] [--pass-env NAME]
 // Login with OTP, LINE or another identity provider cannot be scripted here: sign in by
 // hand in a browser and export its storage state instead.
@@ -70,8 +71,11 @@ async function main() {
     await page.waitForTimeout(1500);
     const at = page.url();
     if (opts.success && !at.includes(opts.success)) throw new Error(`sign-in did not reach "${opts.success}" (now at ${new URL(at).pathname})`);
-    if (new URL(at).pathname === new URL(opts.url).pathname && (await page.locator(opts["pass-selector"]).count())) {
-      throw new Error("still on the sign-in form; check the account, the selectors or --success");
+    // A visible password field or one-time-code box means sign-in did not finish, even if the
+    // URL changed or stayed the same (some apps show email verification on the login route).
+    const pending = page.locator(`${opts["pass-selector"]}:visible, input[autocomplete=one-time-code]:visible`);
+    if (await pending.count()) {
+      throw new Error("sign-in did not finish: a password or verification-code field is still showing; check the account (email verified?), the selectors or --success");
     }
     await context.storageState({ path: out });
     chmodSync(out, 0o600);
