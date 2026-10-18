@@ -16,6 +16,10 @@ Steps:
      setup, including WSL without sudo, is in `../qa-testing/references/browsers-and-tools.md`.
    - Add `--baseline <product repo>` when a signed-off baseline exists. Read the
      "Visual changes" list in `report.md` first: every changed region needs a reason.
+   - App shells that scroll inside an inner div are expanded to full height before the
+     capture; `report.md` names the scroller. A page that still reports one viewport
+     tall with a single slice was not captured whole — find the scroller before
+     reviewing.
 3. Open every slice. Work through the page from top to bottom, one section at a time,
    using `page-checklist.md`, at phone width first and then desktop. Write findings
    against the section, not just the page.

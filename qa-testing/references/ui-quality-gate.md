@@ -43,6 +43,14 @@ tests had passed:
    - small tap targets;
    - more than one primary button in a section.
 
+   Apps that scroll inside an inner container (a full-height app shell with
+   `overflow-y: auto`) leave the document one viewport tall, so a plain full-page
+   screenshot shows only the first screen. Before the audit and capture, the script
+   expands the largest such scroller and its ancestors to their full height, and
+   `report.md` / `report.json` (`expandedScroller`) record the selector and heights. If a
+   page reports "900px tall" with one slice, check that line. `--no-expand-scroller`
+   captures the page exactly as rendered.
+
    ```bash
    PLAYWRIGHT_MODULE=/path/to/node_modules/playwright \
    node scripts/ui_review.mjs --url https://host/page --url https://host/other \
