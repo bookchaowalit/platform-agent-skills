@@ -35,6 +35,16 @@ const server = createServer((req, res) => {
     res.end(page('<form method="post" action="/login"><input type="email" name="email"><input type="password" name="password"><button type="submit">เข้าสู่ระบบ</button></form>'));
     return;
   }
+  if (req.url === "/verify-login" && req.method === "POST") {
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(page('<p>ยืนยันอีเมลก่อนเข้าสู่ระบบ</p><input autocomplete="one-time-code" maxlength="6"><button>ยืนยัน</button>'));
+    return;
+  }
+  if (req.url === "/verify-login") {
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(page('<form method="post" action="/verify-login"><input type="email" name="email"><input type="password" name="password"><button type="submit">เข้าสู่ระบบ</button></form>'));
+    return;
+  }
   if (req.url === "/account") {
     res.writeHead(signedIn ? 200 : 401, { "Content-Type": "text/html; charset=utf-8" });
     res.end(page(signedIn ? "<h1>บัญชีของฉัน</h1>" : "<h1>ต้องเข้าสู่ระบบ</h1>"));
@@ -71,7 +81,11 @@ try {
   await run([join(scripts, "ui_login.mjs"), "--url", `${base}/login`, "--out", join(work, "bad.json"), "--success", "/account"],
     { UI_LOGIN_USER: "review@example.test", UI_LOGIN_PASS: "wrong" }).catch(() => { refused = true; });
   if (!refused) throw new Error("a wrong password must fail");
-  console.log("ui_login fixture test: ok (session saved 600, reused by ui_review, wrong password refused)");
+  let pendingRefused = false;
+  await run([join(scripts, "ui_login.mjs"), "--url", `${base}/verify-login`, "--out", join(work, "pending.json")],
+    { UI_LOGIN_USER: "review@example.test", UI_LOGIN_PASS: "s3cret" }).catch(() => { pendingRefused = true; });
+  if (!pendingRefused) throw new Error("a pending email-verification step must fail even without --success");
+  console.log("ui_login fixture test: ok (session saved 600, reused by ui_review, wrong password and pending verification refused)");
 } catch (error) {
   console.error(`ui_login fixture test: ${error.message}`);
   process.exitCode = 1;
