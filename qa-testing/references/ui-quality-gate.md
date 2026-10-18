@@ -67,7 +67,8 @@ tests had passed:
    (`--verdict pass|pass-with-notes|fail`, with notes that say what you looked at). Add
    `--promote-baseline` so the reviewed slices become the approved baseline for the next
    capture. It is refused with `--verdict fail`. The
-   `ui_review_gate.py` hook blocks `vercel --prod` and `gh pr merge` for UI changes until
+   `ui_review_gate.py` hook blocks `vercel --prod`, `gh pr merge` and `git push` to the default
+   branch (a local merge, which also triggers Git auto-deploys) for UI changes until
    that commit, or an ancestor with no UI changes after it, is signed off.
    The sign-off also posts the GitHub commit status `ui-review`: `success`, or `failure`
    for a fail verdict. The status shows on the pull request, and the gate accepts it from
