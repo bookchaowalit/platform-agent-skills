@@ -8,6 +8,11 @@ odd order, and unnatural Thai.
 Check the **rendered** app, not the source, and cite the screenshot, selector, or
 computed value for every finding.
 
+This gate is the release check. For a full audit of an app (product map, routes,
+authorization, persona flows, interaction states, figures, scoring and the fix loop),
+use the `ux-review` skill; its `references/page-checklist.md` is the detailed version of
+sections 1–4 below.
+
 ## 0. Review procedure (do this every time)
 
 These rules exist because each of these misses happened on a real client project after

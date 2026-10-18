@@ -1,0 +1,4 @@
+interface:
+  display_name: "UX Review"
+  short_description: "Phased UX audit, fixes and live re-check with evidence"
+  default_prompt: "Use $ux-review to audit and fix this app's UX end to end with evidence."

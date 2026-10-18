@@ -59,6 +59,7 @@ instructions have one source of truth and are not duplicated.
 - subagent-orchestration — Opus goal/task/subtask planning, Haiku/Opus routing, detailed delegation briefs, and review-fix loop
 - system-docpack — tiered per-system document packs and PDFs across the portfolio
 - unused-file-cleanup — read-only scan for unreferenced files, verification, and approved scoped removal
+- ux-review — phased UX audit and fix loop: product map, routes, authorization, persona flows, page-by-page and interaction-state review, copy, figures, scoring, live re-check
 
 ## Layout
 
