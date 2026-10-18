@@ -51,7 +51,7 @@ instructions have one source of truth and are not duplicated.
 - lead-research-and-crm — lead qualification, outreach, and CRM hygiene
 - main-only-development — keep the Solo Empire root repository on main and safely integrate extra refs
 - product-management — PRD, roadmap, success metrics, screen inventory, and user flows
-- qa-testing — test strategy, test cases, UAT scripts, and quality evidence
+- qa-testing — test strategy, test cases, UAT scripts, quality evidence, and the full-page UI visual review gate (capture, audit, sign-off, release hook)
 - security-and-privacy — data classification, trust boundaries, and security review
 - skill-template — blank repository contract for a new provider-neutral skill
 - solo-empire-operator — bounded routing for short and cross-cutting requests
