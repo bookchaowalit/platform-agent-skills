@@ -11,6 +11,11 @@ It refuses when the report still has blocker findings, unless --accept-blockers 
 a reason (for example, a known third-party widget). Evidence is written outside the
 repository (see ui_review_evidence.py), keyed by the commit you reviewed.
 
+It also posts the commit status ``ui-review`` (success, or failure for a fail verdict) to
+GitHub so the pull request shows it and a branch rule can require it; pass
+--no-github-status to skip. For a change that touches no UI files, use
+ui_review_status.py instead of a review.
+
 With --promote-baseline (only for a pass verdict) the reviewed slices become the new
 approved baseline that ``ui_review.mjs --baseline <repo>`` compares later captures with.
 """
@@ -28,6 +33,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from ui_review_evidence import (
     baseline_dir,
     git,
+    post_status,
     promote_baseline,
     repo_root,
     repo_slug,
@@ -64,6 +70,11 @@ def main(argv: list[str] | None = None) -> int:
         "--promote-baseline",
         action="store_true",
         help="make the reviewed screenshots the approved visual baseline",
+    )
+    parser.add_argument(
+        "--no-github-status",
+        action="store_true",
+        help="do not post the ui-review commit status to GitHub",
     )
     parser.add_argument(
         "--baseline-dir",
@@ -126,6 +137,16 @@ def main(argv: list[str] | None = None) -> int:
     }
     path = write_evidence(slug, sha, record)
     print(f"ui_signoff: {args.verdict} for {slug}@{sha[:7]} → {path}")
+    if not args.no_github_status:
+        state = "failure" if args.verdict == "fail" else "success"
+        summary = f"{args.verdict} by {args.reviewer}: {counts.get('blocker', 0)} blocker, {counts.get('major', 0)} major, widths {','.join(map(str, widths))}"
+        if post_status(slug, sha, state, summary):
+            print(f"ui_signoff: posted GitHub status ui-review={state} on {sha[:7]}")
+        else:
+            print(
+                "ui_signoff: GitHub status not posted (no gh access or not a GitHub repo)",
+                file=sys.stderr,
+            )
     if promoted:
         print(f"ui_signoff: promoted {len(promoted)} capture(s) to the visual baseline")
     return 0

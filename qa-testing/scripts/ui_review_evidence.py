@@ -190,3 +190,64 @@ def covering_signoff(repo: Path, slug: str, head: str) -> str | None:
 
 def repo_has_ui(repo: Path) -> bool:
     return any(is_ui_file(name) for name in git(repo, "ls-files").splitlines())
+
+
+# --------------------------------------------------------------------------- GitHub status
+# The sign-off is also posted as a commit status (context "ui-review"), so it shows on the
+# pull request, a branch rule can require it, and a sign-off made on another machine still
+# counts for the release gate. Set UI_REVIEW_GITHUB_STATUS=off to skip all GitHub calls.
+
+STATUS_CONTEXT = "ui-review"
+
+
+def github_enabled(slug: str) -> bool:
+    return (
+        "/" in slug and os.environ.get("UI_REVIEW_GITHUB_STATUS", "").lower() != "off"
+    )
+
+
+def post_status(slug: str, sha: str, state: str, description: str) -> bool:
+    """Post the ui-review commit status; returns False (and never raises) when it cannot."""
+    if not github_enabled(slug):
+        return False
+    result = subprocess.run(
+        [
+            "gh",
+            "api",
+            f"repos/{slug}/statuses/{sha}",
+            "--method",
+            "POST",
+            "-f",
+            f"state={state}",
+            "-f",
+            f"context={STATUS_CONTEXT}",
+            "-f",
+            f"description={description[:139]}",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    return result.returncode == 0
+
+
+def github_status(slug: str, sha: str) -> str | None:
+    """Latest ui-review status state for a commit, or None when there is none or no access."""
+    if not github_enabled(slug):
+        return None
+    result = subprocess.run(
+        [
+            "gh",
+            "api",
+            f"repos/{slug}/commits/{sha}/statuses",
+            "--jq",
+            f'[.[] | select(.context == "{STATUS_CONTEXT}")][0].state',
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    state = result.stdout.strip()
+    return state if result.returncode == 0 and state and state != "null" else None

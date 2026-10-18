@@ -7,6 +7,9 @@ signed off with ui_signoff.py:
 - ``vercel ... --prod`` / ``vercel promote`` (the checkout's HEAD is what ships);
 - ``gh pr merge`` (the PR head is what merges; PRs that touch no UI files pass).
 
+A local sign-off record or a ``ui-review`` = success commit status on GitHub (posted by
+ui_signoff.py from any machine) both count.
+
 A sign-off covers its commit and any later commit that changes no UI files. Passing
 tests, overflow checks or an agent's summary are not a sign-off: someone has to look at
 full-page screenshots of every touched page at phone and desktop widths
@@ -33,6 +36,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from ui_review_evidence import (
     covering_signoff,
     git,
+    github_status,
     is_ui_file,
     repo_has_ui,
     repo_root,
@@ -111,7 +115,7 @@ def check_deploy(cwd: Path) -> str | None:
         return None
     head = git(root, "rev-parse", "HEAD")
     slug = repo_slug(root)
-    if covering_signoff(root, slug, head):
+    if covering_signoff(root, slug, head) or github_status(slug, head) == "success":
         return None
     return f"UI review gate: {slug}@{head[:7]} is about to go to production without a visual review sign-off. {HOW_TO}"
 
@@ -157,6 +161,9 @@ def check_merge(cwd: Path, target: str, repo_arg: str | None) -> str | None:
         if covering_signoff(root, slug, head):
             return None
     elif head in signed_shas(slug):
+        return None
+    # A sign-off made on another machine reaches here through the GitHub commit status.
+    if github_status(slug, head) == "success":
         return None
     shown = ", ".join(ui_files[:4]) + (" …" if len(ui_files) > 4 else "")
     return f"UI review gate: PR #{pr.get('number')} in {slug} changes UI ({shown}) and {head[:7]} has no visual review sign-off. {HOW_TO}"
