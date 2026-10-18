@@ -30,7 +30,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from ui_review_evidence import covering_signoff, git, is_ui_file, repo_has_ui, repo_root, repo_slug, signed_shas  # noqa: E402
+from ui_review_evidence import (
+    covering_signoff,
+    git,
+    is_ui_file,
+    repo_has_ui,
+    repo_root,
+    repo_slug,
+    signed_shas,
+)
 
 SPLIT = re.compile(r"\s*(?:&&|\|\||;|\|)\s*")
 HOW_TO = (
@@ -57,7 +65,9 @@ def segments(command: str) -> list[list[str]]:
 
 
 def is_vercel_prod(tokens: list[str]) -> bool:
-    if "vercel" not in [Path(t).name for t in tokens] and not any(t.startswith("vercel@") for t in tokens):
+    if "vercel" not in [Path(t).name for t in tokens] and not any(
+        t.startswith("vercel@") for t in tokens
+    ):
         return False
     return "--prod" in tokens or "--production" in tokens or "promote" in tokens
 
@@ -82,7 +92,17 @@ def gh_merge_target(tokens: list[str]) -> tuple[str, str | None] | None:
 
 
 def deny(reason: str) -> None:
-    print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": reason}}))
+    print(
+        json.dumps(
+            {
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "permissionDecision": "deny",
+                    "permissionDecisionReason": reason,
+                }
+            }
+        )
+    )
 
 
 def check_deploy(cwd: Path) -> str | None:
@@ -97,10 +117,19 @@ def check_deploy(cwd: Path) -> str | None:
 
 
 def check_merge(cwd: Path, target: str, repo_arg: str | None) -> str | None:
-    cmd = ["gh", "pr", "view", *([target] if target else []), "--json", "headRefOid,files,number"]
+    cmd = [
+        "gh",
+        "pr",
+        "view",
+        *([target] if target else []),
+        "--json",
+        "headRefOid,files,number",
+    ]
     if repo_arg:
         cmd += ["--repo", repo_arg]
-    view = subprocess.run(cmd, capture_output=True, text=True, timeout=60, cwd=cwd)
+    view = subprocess.run(
+        cmd, check=False, capture_output=True, text=True, timeout=60, cwd=cwd
+    )
     if view.returncode != 0:
         raise RuntimeError(view.stderr.strip() or "gh pr view failed")
     pr = json.loads(view.stdout)
@@ -111,8 +140,20 @@ def check_merge(cwd: Path, target: str, repo_arg: str | None) -> str | None:
     root = repo_root(cwd)
     slug = repo_arg or (repo_slug(root) if root else "")
     if root is not None and repo_slug(root) == slug:
-        if subprocess.run(["git", "-C", str(root), "cat-file", "-e", head], capture_output=True).returncode != 0:
-            subprocess.run(["git", "-C", str(root), "fetch", "-q", "origin"], capture_output=True, timeout=120)
+        if (
+            subprocess.run(
+                ["git", "-C", str(root), "cat-file", "-e", head],
+                check=False,
+                capture_output=True,
+            ).returncode
+            != 0
+        ):
+            subprocess.run(
+                ["git", "-C", str(root), "fetch", "-q", "origin"],
+                check=False,
+                capture_output=True,
+                timeout=120,
+            )
         if covering_signoff(root, slug, head):
             return None
     elif head in signed_shas(slug):

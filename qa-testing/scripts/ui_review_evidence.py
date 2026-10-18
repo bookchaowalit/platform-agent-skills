@@ -15,12 +15,29 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-UI_SUFFIXES = (".tsx", ".jsx", ".vue", ".svelte", ".astro", ".css", ".scss", ".sass", ".less", ".html", ".mdx")
-NOT_UI = re.compile(r"(\.test\.|\.spec\.|\.stories\.|(^|/)(tests?|__tests__|e2e|stories)/)")
+UI_SUFFIXES = (
+    ".tsx",
+    ".jsx",
+    ".vue",
+    ".svelte",
+    ".astro",
+    ".css",
+    ".scss",
+    ".sass",
+    ".less",
+    ".html",
+    ".mdx",
+)
+NOT_UI = re.compile(
+    r"(\.test\.|\.spec\.|\.stories\.|(^|/)(tests?|__tests__|e2e|stories)/)"
+)
 
 
 def state_dir() -> Path:
-    return Path(os.environ.get("UI_REVIEW_STATE_DIR") or Path.home() / ".local" / "state" / "ui-review")
+    return Path(
+        os.environ.get("UI_REVIEW_STATE_DIR")
+        or Path.home() / ".local" / "state" / "ui-review"
+    )
 
 
 def is_ui_file(path: str) -> bool:
@@ -28,7 +45,13 @@ def is_ui_file(path: str) -> bool:
 
 
 def git(repo: Path, *args: str, check: bool = True) -> str:
-    result = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, timeout=30)
+    result = subprocess.run(
+        ["git", "-C", str(repo), *args],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
     if check and result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or f"git {' '.join(args)} failed")
     return result.stdout.strip()
@@ -56,7 +79,9 @@ def write_evidence(slug: str, sha: str, record: dict[str, Any]) -> Path:
     folder = evidence_dir(slug)
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / f"{sha}.json"
-    path.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
     return path
 
 
@@ -67,7 +92,10 @@ def signed_shas(slug: str) -> list[str]:
     shas = []
     for file in folder.glob("*.json"):
         try:
-            if json.loads(file.read_text(encoding="utf-8")).get("verdict") in {"pass", "pass-with-notes"}:
+            if json.loads(file.read_text(encoding="utf-8")).get("verdict") in {
+                "pass",
+                "pass-with-notes",
+            }:
                 shas.append(file.stem)
         except (OSError, ValueError):
             continue
@@ -84,7 +112,12 @@ def covering_signoff(repo: Path, slug: str, head: str) -> str | None:
     for sha in signed_shas(slug):
         if sha == head:
             return sha
-        ancestor = subprocess.run(["git", "-C", str(repo), "merge-base", "--is-ancestor", sha, head], capture_output=True, timeout=30)
+        ancestor = subprocess.run(
+            ["git", "-C", str(repo), "merge-base", "--is-ancestor", sha, head],
+            check=False,
+            capture_output=True,
+            timeout=30,
+        )
         if ancestor.returncode == 0:
             try:
                 if not ui_changes_between(repo, sha, head):

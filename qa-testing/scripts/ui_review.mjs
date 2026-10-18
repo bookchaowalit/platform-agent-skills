@@ -127,10 +127,17 @@ function auditPage({ forbid, primary }) {
   const whole = figures.filter((f) => !/\.\d+$/.test(f));
   if (withDecimals.length && whole.length) add("major", "mixed-money-precision", `${whole.length} whole and ${withDecimals.length} with decimals (e.g. ${withDecimals[0]}) — estimates usually read in whole units`);
 
-  // 5. Forbidden words in visible copy (e.g. untranslated units, TODO)
+  // 5. Forbidden words in visible copy (e.g. untranslated units, TODO).
+  // Case-sensitive whole-word match ("unit" is not "Unit"), done without a dynamic RegExp.
+  const isLatin = (ch) => /[A-Za-z]/.test(ch || "");
+  const hasWord = (text, word) => {
+    for (let i = text.indexOf(word); i >= 0; i = text.indexOf(word, i + 1)) {
+      if (!isLatin(text[i - 1]) && !isLatin(text[i + word.length])) return true;
+    }
+    return false;
+  };
   for (const word of forbid) {
-    const re = new RegExp(`(^|[^A-Za-z])${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^A-Za-z]|$)`); // case-sensitive: "unit" is not "Unit"
-    const hit = texts.find(({ t }) => re.test(t));
+    const hit = texts.find(({ t }) => hasWord(t, word));
     if (hit) add("major", "forbidden-word", `"${word}" in "${hit.t.slice(0, 60)}"`, hit.el);
   }
 
