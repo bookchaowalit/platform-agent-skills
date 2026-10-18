@@ -136,6 +136,29 @@ function auditPage({ forbid, primary, viewportWidth }) {
     }
   }
 
+  // 2c. Narrow text column: running text squeezed into a thin column beside other content
+  // (thumbnail + text + button in one row on a phone), so it reads a few words per line.
+  // Narrower than ~9 characters' width per line and 4+ lines, one finding per row.
+  const narrowRows = new Set();
+  for (const { t, el } of texts) {
+    if (t.length < 24 || crushed.has(el)) continue;
+    const cs = getComputedStyle(el);
+    const fs = parseFloat(cs.fontSize) || 16;
+    const lh = parseFloat(cs.lineHeight) || fs * 1.4;
+    const r = el.getBoundingClientRect();
+    if (!(r.width > 0 && r.width < fs * 9 && r.height >= lh * 3.5)) continue;
+    let row = el.parentElement;
+    while (row && row !== root) {
+      const rs = getComputedStyle(row);
+      if ((rs.display === "flex" || rs.display === "inline-flex") && !rs.flexDirection.startsWith("column") && row.children.length > 1) break;
+      if (rs.display === "grid" && rs.gridTemplateColumns.split(" ").length > 1) break;
+      row = row.parentElement;
+    }
+    if (!row || row === root || narrowRows.has(row)) continue;
+    narrowRows.add(row);
+    add("major", "narrow-text-column", `"${t.slice(0, 30)}" runs in a ${Math.round(r.width)}px column (~${Math.round(r.width / fs)} characters per line, ${Math.round(r.height / lh)} lines) beside other content — stack the row on narrow screens or give the text the full width`, el);
+  }
+
   // 3. Long text blocks inside cards/sections (wall of text)
   const BLOCK = "p,div,ul,ol,dl,dt,dd,li,section,article,table,h1,h2,h3,h4,h5,h6,details,form";
   const reported = new Set();
@@ -246,9 +269,20 @@ async function capture(browser, browserName, variant, url, opts, report, extras)
     const a11y = extras.axe ? await axePass(page, extras.axe) : null;
     const base = captureBase(url, browserName, variant);
     const shots = [];
-    for (let y = 0, i = 0; y < audit.height; y += opts.slice, i += 1) {
+    // Slice against the height the browser will actually render: some engines (Firefox with
+    // device emulation) report a scrollHeight a few pixels taller than the full-page image.
+    const pageHeight = await page.evaluate(() => Math.min(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight || Infinity : Infinity)).catch(() => audit.height);
+    const sliceTo = Math.max(1, Math.min(audit.height, pageHeight || audit.height));
+    for (let y = 0, i = 0; y < sliceTo; y += opts.slice, i += 1) {
       const file = join(opts.out, `${base}-${String(i).padStart(2, "0")}.png`);
-      await page.screenshot({ path: file, fullPage: true, animations: "disabled", caret: "hide", clip: { x: 0, y, width: variant.width, height: Math.min(opts.slice, audit.height - y) } });
+      const height = Math.min(opts.slice, sliceTo - y);
+      try {
+        await page.screenshot({ path: file, fullPage: true, animations: "disabled", caret: "hide", clip: { x: 0, y, width: variant.width, height } });
+      } catch {
+        // Last resort: the remaining part as a plain viewport-sized capture at that offset.
+        await page.evaluate((top) => window.scrollTo(0, top), y);
+        await page.screenshot({ path: file, animations: "disabled", caret: "hide" });
+      }
       shots.push(file);
     }
     const entry = {
