@@ -109,6 +109,7 @@ The plugin carries:
 | Skills | every `<name>/SKILL.md` at the root, plus `vendor/<name>/` | the skill packages listed above |
 | Codex review gate | `hooks/codex_review_stop.py` (Stop) | reviews uncommitted changes in `~/*-hub` and `~/nexatech-empire` repos with `codex review`; a `[P1]` finding blocks the turn (at most twice a session). It needs the `codex` CLI; without it the hook lets the turn end with a note |
 | UI review gate | `qa-testing/scripts/ui_review_gate.py` (PreToolUse on Bash) | blocks a push to the default branch that changes UI files until the full-page visual review is signed off |
+| Tool hub (MCP) | `.mcp.json` → `solo-empire` | the hosted remote MCP (`platform-mcp-remote-worker`): `list_cells`, `describe_cell`, `call_cell` for every cell, plus the CRM and AI tools. `hooks/mcp_auth_header.py` supplies the bearer from Infisical `/mcp` at connect time, so no token is stored in a config file (cloud sessions add the server themselves, see the remote MCP README) |
 
 The plugin has no `version`, so Claude Code tracks the latest commit on `main`: a merge here
 reaches every machine on its next plugin update. Cloud sessions on claude.ai/code do not
