@@ -23,7 +23,8 @@ the linked reference. Skip a phase only when the owner says so, and record the s
 3. **Sweep every route** (P3–P4): every route × role × width for status, errors,
    overflow and access, plus an authorization matrix of role × page × action × API.
 4. **Walk the flows** (P5–P6): as-is and to-be Mermaid flows per persona and use case,
-   then run each flow step in a browser at phone and desktop width.
+   then run each flow step in a browser at phone and desktop width. Record the main
+   flows per role as videos with `../flow-video/` for the owner and handover.
 5. **Review every page** (P7): section by section at 320/375/768/1024/1440 with
    `../qa-testing/scripts/ui_review.mjs`, against `references/page-checklist.md`. Open
    every screenshot slice. Main use cases also run in WebKit and Firefox and on emulated

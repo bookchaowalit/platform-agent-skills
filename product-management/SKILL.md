@@ -24,7 +24,8 @@ user experience explicit enough to build and test.
    status) and draw the main user flows in mermaid; note design-system
    components in use. Use
    `templates/positions/ux-ui-designer/research-and-design-handoff.md` for a
-   standalone design handoff.
+   standalone design handoff. To show the built flows to the owner, client or a new
+   tester, record a role tour and use-case videos with `flow-video`.
 6. Measure: turn the PRD success metrics into
    `templates/sdlc/kpi-and-instrumentation-plan.md` (architecture-docs) —
    an outcome, a leading, and a guardrail KPI for every charter objective,

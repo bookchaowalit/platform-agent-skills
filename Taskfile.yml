@@ -20,6 +20,8 @@ tasks:
       - node tests/ui_baseline_fixture_test.mjs
       - node tests/ui_cross_browser_fixture_test.mjs
       - node tests/ui_a11y_perf_fixture_test.mjs
+      - node --check flow-video/scripts/flow_video.mjs
+      - node tests/flow_video_fixture_test.mjs
   audit:
     desc: Full skill governance audit as JSON
     cmds:
