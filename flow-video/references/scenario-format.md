@@ -73,7 +73,8 @@ the skill.
   non-GET `data-method` or `rel=nofollow` are always skipped. Add an `exclude` for any
   other link that changes state on GET.
 - `max`: page limit (default 30).
-- `denied`: regex of on-page text meaning "no access". The default covers common Thai
+- `denied`: regex of on-page text meaning "no access"; `deniedMaxChars` sets the size of a
+  page that counts as "only the message". The default covers common Thai
   and English messages. It is matched against `content` only.
 - `content`: selector of the content area (default `main`, else `body`), so menu text
   never counts as a message.
@@ -123,8 +124,15 @@ Writes blocked during a step that still worked (analytics, autosave) are listed 
 step (`steps[].blocked`, ⚠ in the gallery). Look at the frame: if the app shows an error
 because of it, the video is misleading. Fix the scenario.
 
-Tour access per page: `open`, `denied` (message in the content area), `HTTP <code>`, or
-`redirected to <path>` (the app sent the role somewhere else).
+Tour access per page:
+
+- `open`.
+- `limited: <sentence>`: a full page that also shows the permission phrase. This is often a
+  view-only banner, and sometimes help text. Read the quoted sentence or the frame.
+- `denied`: the content area is little more than the message (under `deniedMaxChars`,
+  default 400).
+- `HTTP <code>`.
+- `redirected to <path>`: the app sent the role somewhere else.
 
 ```text
 index.html          gallery by role, click a step to seek

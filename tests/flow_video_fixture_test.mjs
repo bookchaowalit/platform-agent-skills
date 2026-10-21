@@ -34,7 +34,7 @@ const server = createServer((req, res) => {
   if (req.url === "/login") return send(200, '<h1>เข้าสู่ระบบ</h1><input type="password">');
   if (!role) { res.writeHead(302, { Location: "/login" }); return res.end(); }
   if (req.url === "/dashboard") return send(200, page(role, `<h1>แดชบอร์ด</h1>${"<p>งานวันนี้ 12 รายการ</p>".repeat(40)}`));
-  if (req.url === "/orders") return send(200, page(role, `<h1>ใบสั่งงาน</h1><form method="post" action="/orders"><label>ลูกค้า <input name="customer"></label><button type="submit">บันทึก</button></form><button id="draft" onclick="fetch('/draft',{method:'patch'})">บันทึกร่าง</button>`));
+  if (req.url === "/orders") return send(200, page(role, `<h1>ใบสั่งงาน</h1>${role === "staff" ? `<p class="notice">บัญชีนี้ดูได้ แต่ไม่มีสิทธิ์แก้ไข</p>${"<p>รายการใบสั่งงานตัวอย่าง JO-0001 ลูกค้าตัวอย่าง</p>".repeat(20)}` : ""}<form method="post" action="/orders"><label>ลูกค้า <input name="customer"></label><button type="submit">บันทึก</button></form><button id="draft" onclick="fetch('/draft',{method:'patch'})">บันทึกร่าง</button>`));
   if (req.url === "/old-reports") { res.writeHead(302, { Location: "/dashboard" }); return res.end(); }
   if (req.url === "/settings") return send(200, page(role, role === "admin" ? "<h1>ตั้งค่า</h1>" : "<h1>ไม่มีสิทธิ์เข้าหน้านี้</h1>"));
   return send(404, "<h1>ไม่พบหน้า</h1>");
@@ -86,6 +86,7 @@ try {
   if (paths.join(",") !== "/dashboard,/orders,/settings,/old-reports") fail(`tour pages wrong: ${paths}`);
   if (signOuts.length) fail(`tour followed a sign-out link: ${signOuts}`);
   if (tour.pages.find((p) => p.path === "/settings").access !== "denied") fail("staff /settings should be denied");
+  if (!tour.pages.find((p) => p.path === "/orders").access.startsWith("limited: บัญชีนี้ดูได้")) fail(`view-only page should be limited: ${tour.pages[1].access}`);
   if (tour.pages.find((p) => p.path === "/old-reports").access !== "redirected to /dashboard") fail(`redirect not reported: ${tour.pages.at(-1).access}`);
   const uc = byId["UC-01"];
   if (uc.status !== "ok") fail(`UC-01 failed: ${uc.error}`);

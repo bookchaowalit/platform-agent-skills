@@ -409,18 +409,24 @@ async function runTour(page, ctx, sc, spec, rec) {
       const area = document.querySelector(sel) || document.body;
       return {
         heading: ((area && area.querySelector("h1")) || document.querySelector("h1"))?.innerText?.replace(/\s+/g, " ").trim() || document.title || "",
-        text: (area?.innerText || "").slice(0, 4000),
+        text: (area?.innerText || "").slice(0, 6000),
         pathname: location.pathname, path: location.pathname + location.search + location.hash,
       };
     }, tour.content || "main");
     const wanted = new URL(href).pathname.replace(/\/$/, "") || "/";
     const landed = info.pathname.replace(/\/$/, "") || "/";
-    const access = status && status >= 400 ? `HTTP ${status}` : denied.test(info.text) ? "denied"
-      : landed !== wanted ? `redirected to ${landed}` : "open";
+    // A page that is only the refusal message is "denied". A full page that also carries the
+    // phrase (a view-only banner, or help text that mentions permissions) is "limited", with the
+    // sentence quoted so a person can tell which it is from the page map.
+    const hitLine = denied.test(info.text) ? info.text.split("\n").find((l) => denied.test(l)) || "" : "";
+    const access = status && status >= 400 ? `HTTP ${status}`
+      : landed !== wanted ? `redirected to ${landed}`
+      : hitLine && info.text.replace(/\s+/g, "").length < (tour.deniedMaxChars || 400) ? "denied"
+      : hitLine ? `limited: ${hitLine.trim().slice(0, 90)}` : "open";
     rec.pages.push({ n, label: link.label, path: link.path, landed: info.path, heading: info.heading, access, status });
     await page.waitForTimeout(readTime(say, ctx.pace) / 2);
     await rec.frame(n);
-    if (access === "open" && tour.scroll !== false) {
+    if ((access === "open" || access.startsWith("limited")) && tour.scroll !== false) {
       await scrollPage(page, ctx.pace, "bottom");
       await page.waitForTimeout(600 * ctx.pace);
       await scrollPage(page, ctx.pace, "top");
@@ -596,11 +602,11 @@ function pageMap(spec, results) {
   for (const p of paths) {
     const cells = tours.map((t) => {
       const hit = t.pages.find((x) => route(x.path) === route(p.path));
-      return !hit ? "—" : hit.access === "open" ? "✓" : `✗ ${md(hit.access)}`;
+      return !hit ? "—" : hit.access === "open" ? "✓" : hit.access.startsWith("limited") ? "◐ limited" : `✗ ${md(hit.access)}`;
     });
     lines.push(`| ${md(p.label)} | ${code(route(p.path))} | ${cells.join(" | ")} |`);
   }
-  lines.push("", "✓ open in the menu · ✗ in the menu but refused or sent elsewhere · — not in this role's menu", "");
+  lines.push("", "✓ open · ◐ opens with a permission notice (often view-only; the per-role table quotes it) · ✗ refused or sent elsewhere · — not in this role's menu", "");
   for (const t of tours) {
     lines.push(`## ${md(t.roleLabel || t.role)} (${t.id})`, "", "| # | Menu label | Heading on page | Landed at | Access |", "|---|---|---|---|---|");
     for (const p of t.pages) lines.push(`| ${p.n} | ${md(p.label)} | ${md(p.heading)} | ${code(p.landed)} | ${md(p.access)} |`);
