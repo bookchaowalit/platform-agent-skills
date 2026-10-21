@@ -13,6 +13,7 @@ tasks:
       - node --check qa-testing/scripts/ui_visual_diff.mjs
       - node --check qa-testing/scripts/ui_a11y_perf.mjs
       - node tests/ui_review_fixture_test.mjs
+      - node tests/ui_inner_scroller_fixture_test.mjs
       - node --check ux-review/scripts/ui_states.mjs
       - node tests/ui_states_fixture_test.mjs
       - node --check qa-testing/scripts/ui_login.mjs
