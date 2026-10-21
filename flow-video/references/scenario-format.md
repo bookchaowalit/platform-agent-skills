@@ -98,6 +98,11 @@ Selectors are Playwright selectors. The first match is used. Prefer, in this ord
 Scope to `main` so the sidebar does not match first. Never select by generated
 class names.
 
+`:has-text("ล่าช้า")` matches substrings, so it also matches "เสี่ยงล่าช้า". With Thai labels
+that share words, use an exact match: `button:has(:text-is("ล่าช้า"))` or
+`role=button[name="ล่าช้า"]` with `exact=true`. Then check the frame to see which element
+was framed.
+
 ## Pacing and captions
 
 - Reading time per step is about 55 ms per character, between 1.6 and 5 s, times `--slow`.
