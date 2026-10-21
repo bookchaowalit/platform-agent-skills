@@ -54,23 +54,24 @@ release approval. Sub-agents get one bounded subtask each and return the
    The review unit is one reviewable change set (one task's diff, its
    acceptance criteria, and its test results), not every commit.
    - **Gate by risk.** Low risk (rename, formatting, boilerplate): automated
-     checks only. Medium risk: one Codex review when the task's
+     checks only. Medium risk: one independent review when the task's
      implementation is done. High risk (security, migration, payment, data
-     deletion, auth): Codex review at each logical milestone and at the end,
-     plus `solo-security`.
-   - **Run Codex** only after tests, typecheck, lint, and build pass. Commit
-     the change set as one scoped commit, then run
-     `codex --profile solo-audit --ask-for-approval never exec --ephemeral -s read-only -m gpt-6.1-sol -c model_reasoning_effort='"high"' "Review commit <sha> (git show <sha>) against: <acceptance criteria>. Do not edit files. Report each finding with severity, file:line, evidence, and a suggested fix, or say no findings." < /dev/null`.
-     (`codex review --commit <sha>` works too, but it cannot take the
-     acceptance criteria as a prompt.)
-   - **Triage every finding yourself** against the evidence; Codex has no
-     veto. Mark each one *blocking* (must fix before accepting), *non-blocking*
+     deletion, auth): independent review at each logical milestone and at the
+     end, plus `solo-security`.
+   - **Run the review** only after tests, typecheck, lint, and build pass.
+     Commit the change set as one scoped commit, then dispatch a fresh
+     `solo-reviewer` (`model: opus` for high risk) that did not write the
+     change: "Review commit <sha> (git show <sha>) against: <acceptance
+     criteria>. Do not edit files. Report each finding with severity,
+     file:line, evidence, and a suggested fix, or say no findings."
+   - **Triage every finding yourself** against the evidence; the reviewer has
+     no veto. Mark each one *blocking* (must fix before accepting), *non-blocking*
      (record it in the report, do not loop on it), or *disputed* (check the
      evidence before anyone acts on it).
    - **Send only blocking findings back** to the worker that wrote the change,
      as a new brief with the finding, the evidence, and the check that must
      pass. The worker fixes the issue, adds a regression test, and reruns the
-     checks. Then Codex reviews the fix commit.
+     checks. Then a fresh reviewer reviews the fix commit.
    - **Stop** when a review has no blocking finding (accept), or when the
      escalation limit below is reached.
    - **Track review scope.** Record the SHA each review covered. Accept only
@@ -83,9 +84,8 @@ release approval. Sub-agents get one bounded subtask each and return the
    - **Verify after the last change.** If anything changed after the review
      passed (even a rebase or a doc tweak), rerun the focused checks and
      confirm the diff stayed inside the reviewed scope before accepting.
-   - The reviewer's write boundary is the OS sandbox (`-s read-only` under the
-     `solo-audit` profile), not the prompt; writes fail with `Read-only file
-     system`. Never run the reviewer with a writable sandbox.
+   - The reviewer reports and never fixes. Give it read-only tools; if it
+     edits a file anyway, discard that edit and re-run the review.
 8. **Report.** Summarize the tree status, what changed, verification evidence,
    review rounds with their reviewed SHAs and finding states, and residual
    risks. Also record the workflow metrics: wall-clock task time, review
@@ -105,9 +105,8 @@ release approval. Sub-agents get one bounded subtask each and return the
 | Browser rendering and interaction checks | `solo-ui-verifier` | Haiku, `medium` |
 | Bounded code or docs change | `solo-implementer` | Haiku, `medium` |
 | Reproduce and root-cause a failure | `solo-debugger` | Sonnet, `medium` |
-| In-session diff review when Codex is unavailable | `solo-reviewer` | Sonnet, `medium` |
+| Independent review of each medium- or high-risk change set (step 7) | `solo-reviewer` | Sonnet, `medium`; `model: opus` for high risk |
 | Secrets, permissions, MCP, privacy audit | `solo-security` | inherit Opus |
-| Independent review of each medium- or high-risk change set | Codex CLI (step 7) | `gpt-6.1-sol`, `high` |
 
 Models and efforts come from `claude_model` and `claude_effort` in
 `.github/agents/roles.yaml`; change them there and run `task subagents:sync`.
@@ -120,15 +119,15 @@ easier than its role default.
 | --- | --- | --- |
 | Rename, formatting, boilerplate | Haiku implementer | Focused tests and lint |
 | CRUD, API, UI component in known patterns | Haiku implementer | Tests, typecheck, static analysis |
-| Multi-file feature or large refactor | Implementer with `model: sonnet` | Codex review |
-| Complex debugging | Sonnet debugger; escalate to Opus | Codex review |
-| Architecture or cross-system design | Opus (main agent) | Codex review |
-| Security, migration, payment, data deletion | Opus security plus implementer with `model: sonnet` or `opus` | Codex review and tests; release approval stays with the user |
+| Multi-file feature or large refactor | Implementer with `model: sonnet` | Independent review |
+| Complex debugging | Sonnet debugger; escalate to Opus | Independent review |
+| Architecture or cross-system design | Opus (main agent) | Independent review |
+| Security, migration, payment, data deletion | Opus security plus implementer with `model: sonnet` or `opus` | Independent review and tests; release approval stays with the user |
 
 The review gate column is the minimum. The risk tier in step 7 decides whether
-Codex also runs: any row rated medium or high risk gets a Codex review.
+an independent review also runs: any row rated medium or high risk gets one.
 Automated checks (tests, lint, typecheck, CI) are always the first gate; the
-Codex review never replaces them.
+review never replaces them.
 
 ## Escalation rule
 
@@ -138,7 +137,7 @@ Codex review never replaces them.
 - A Sonnet worker gets at most two attempts; then the main agent takes the
   subtask itself or asks the user.
 - Never loop a worker on the same failing check without new evidence.
-- The same limits apply to Codex review rounds: two failed rounds with the
+- The same limits apply to review rounds: two failed rounds with the
   same worker model mean escalate the model, not a third round.
 
 ## Brief quality bar

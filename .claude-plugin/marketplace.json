@@ -8,7 +8,7 @@
     {
       "name": "solo",
       "source": "./",
-      "description": "Every portable Solo Empire skill, the Codex review Stop gate and the UI review push gate."
+      "description": "Every portable Solo Empire skill and the UI review push gate."
     }
   ]
 }

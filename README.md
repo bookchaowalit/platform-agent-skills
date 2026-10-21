@@ -43,7 +43,6 @@ instructions have one source of truth and are not duplicated.
 - ai-product-delivery — production delivery for AI products and features
 - book-dev-engineering-loop — one-task Book Dev execution with repository isolation and approval gates
 - business-analysis — requirements, traceability, UAT, and benefits handoff
-- codex-review — read-only second-opinion review of the current diff by the Codex CLI, verified by Claude before reporting
 - client-discovery-and-proposals — qualified scope, proposal, pricing, and delivery handoff
 - content-distribution — evidence-backed content planning and measurement
 - data-engineering — governed lake-first data products, contracts, quality, lineage, and replay
@@ -107,7 +106,6 @@ The plugin carries:
 | Part | Path | What it does |
 |---|---|---|
 | Skills | every `<name>/SKILL.md` at the root, plus `vendor/<name>/` | the skill packages listed above |
-| Codex review gate | `hooks/codex_review_stop.py` (Stop) | reviews uncommitted changes in `~/*-hub` and `~/nexatech-empire` repos with `codex review`; a `[P1]` finding blocks the turn (at most twice a session). It needs the `codex` CLI; without it the hook lets the turn end with a note |
 | UI review gate | `qa-testing/scripts/ui_review_gate.py` (PreToolUse on Bash) | blocks a push to the default branch that changes UI files until the full-page visual review is signed off |
 | Tool hub (MCP) | `.mcp.json` → `solo-empire` | the hosted remote MCP (`platform-mcp-remote-worker`): `list_cells`, `describe_cell`, `call_cell` for every cell, plus the CRM and AI tools. `hooks/mcp_auth_header.py` supplies the bearer from Infisical `/mcp` at connect time, so no token is stored in a config file (cloud sessions add the server themselves, see the remote MCP README) |
 
