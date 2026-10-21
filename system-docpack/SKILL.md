@@ -50,6 +50,17 @@ tier (L1 Lite, L2 Standard, L3 Full). EV3 is the reference implementation.
 - Sending a PDF to a client, posting it, or uploading it anywhere is an
   external action → stop for explicit approval.
 - Personal names, contact details, secrets, raw client data → never in a pack.
+- Work started on or after 2026-10-16 also follows the 12-phase SDLC set in
+  architecture-docs `templates/sdlc/README.md`. Its SDLC measurement and launch
+  records are not docpack doc types: keep `kpi-and-instrumentation-plan.md`,
+  `launch-gtm-plan.md`, `experiment-log.md`, and one `outcome-review.md` per
+  review in the project's SDLC workspace, and link them from the docpack
+  overview (KPI plan from the prd success-metrics section, launch plan from
+  the runbook, latest outcome review from the overview status).
+- When asked whether a released system's documentation is complete, also
+  check for a KPI plan with verified instrumentation and an outcome review
+  newer than its cadence. Report a missing or overdue one as a gap and route
+  it to `product-management`; do not invent figures to fill it.
 
 ## Resources
 
