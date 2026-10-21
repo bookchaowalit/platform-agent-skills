@@ -50,7 +50,7 @@ instructions have one source of truth and are not duplicated.
 - graphic-design — design principles, art style vocabulary, and critique checklist for graphics and campaigns
 - lead-research-and-crm — lead qualification, outreach, and CRM hygiene
 - main-only-development — keep the Solo Empire root repository on main and safely integrate extra refs
-- product-management — PRD, roadmap, success metrics, screen inventory, and user flows
+- product-management — PRD, roadmap, KPI and instrumentation plan, launch/GTM plan, experiment log, outcome reviews, screen inventory, and user flows
 - qa-testing — test strategy, test cases, UAT scripts, quality evidence, and the full-page UI visual review gate (capture in Chromium/WebKit/Firefox and device emulation, audit, visual baseline diff, axe-core accessibility, mobile Core Web Vitals, sign-off, release hook)
 - security-and-privacy — data classification, trust boundaries, and security review
 - skill-template — blank repository contract for a new provider-neutral skill

@@ -1,4 +1,4 @@
 interface:
   display_name: "Product Management"
-  short_description: "PRD, roadmap, metrics, screens, and user flows"
+  short_description: "PRD, roadmap, KPIs, launch, outcomes, and user flows"
   default_prompt: "Use $product-management to frame the product, write the PRD and roadmap, and map screens and user flows."

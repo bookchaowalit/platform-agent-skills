@@ -36,7 +36,18 @@ every test to evidence, and every gap to an owner.
    - Sign off the reviewed commit with `scripts/ui_signoff.py`. Add
      `--promote-baseline` to a pass so it becomes the next visual baseline.
    - Capture the live URL again after deploy.
-7. Check release readiness against `templates/development-cycle/quality-gate-pack.md`.
+7. Verify analytics before release: run checks 1–7 of the instrumentation
+   verification in `templates/sdlc/kpi-and-instrumentation-plan.md` —
+   every event fires once per real action, counts reconcile with the system
+   of record, no personal data in payloads, dashboards render, alerts fire,
+   baselines captured or a dated action recorded, and no analytics before
+   consent where consent is the lawful basis. Record evidence
+   per check. Checks 1–5 and 7 must pass before G10; only check 6 can be
+   waived with a dated action.
+8. For staged rollouts, confirm each stage's guardrail KPIs and rollback
+   triggers in `templates/sdlc/launch-gtm-plan.md` section 8 match the
+   runbook and the go-live checklist.
+9. Check release readiness against `templates/development-cycle/quality-gate-pack.md`.
 
 ## Decision rules
 
@@ -44,6 +55,9 @@ every test to evidence, and every gap to an owner.
   acceptance; only the client signs acceptance.
 - Untested or blocked cases stay visible with a reason; never drop them.
 - Production data or real payments in tests → stop for explicit approval.
+- An A/B test result with a sample ratio mismatch (chi-square p < 0.001) or
+  broken events is invalid: do not analyse it, record a deviation in the EXP
+  card run record, raise a defect for broken instrumentation, and rerun.
 - Passing tests, overflow checks and agent summaries are not a UI review. Only a
   look at the rendered screenshots is, recorded with `ui_signoff.py`.
 - `ui_signoff.py` posts the GitHub commit status `ui-review`. For pull requests that
@@ -58,4 +72,5 @@ every test to evidence, and every gap to an owner.
 ## Handoff
 
 Report suites run with results, TC coverage of priority requirements, open
-defects by severity, UAT status, exit-criteria verdict, and next action.
+defects by severity, UAT status, instrumentation check results, exit-criteria
+verdict, and next action.

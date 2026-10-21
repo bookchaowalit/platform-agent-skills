@@ -34,18 +34,27 @@ use only the artifact templates required by the bounded initiative.
 5. Requirements: use business-requirements.md and user-story.md. Make each
    priority item testable, sourced, prioritized, and owned.
 6. Baseline: obtain accountable approval, version the baseline, and start
-   requirements-traceability-matrix.md.
+   requirements-traceability-matrix.md. Include the KPI definitions and
+   targets from `templates/sdlc/kpi-and-instrumentation-plan.md` (owned by
+   `product-management`) in the baseline; for client work the client signs
+   them at G5 with the requirements.
 7. Change control: never silently edit an approved baseline. Use
    change-request.md and decision-log.md, then update the RTM after a decision.
 8. UAT: use uat-plan-report.md. Distinguish smoke checks, technical tests,
    UAT, business acceptance, defects, waivers, and evidence.
 9. Handoff: use handoff-benefits-review.md. Transfer ownership, limitations,
-   support boundaries, metrics, evidence, and the next review task.
+   support boundaries, metrics, evidence, and the next review task. Cite KPI
+   IDs from the KPI plan; do not define metrics again.
+10. Benefits follow-up: the **Actual** column of the benefits review cites
+   the latest `templates/sdlc/outcome-review.md`. Each outcome-review
+   decision that changes scope goes through change-request.md and the RTM.
 
 ## Artifact rules
 
 - Keep drafts, approved baselines, rejected changes, and evidence separate.
-- Link objective → requirement → acceptance criterion → test/evidence.
+- Link objective → requirement → acceptance criterion → test/evidence →
+  release → KPI → experiment → outcome review, as in the SDLC traceability chain
+  (`templates/sdlc/README.md`).
 - Record source, rationale, priority, owner, status, approver, and date.
 - Use placeholders only in templates; do not leave them in an approved artifact.
 - Store reusable blank starters under templates/roles/business-analyst/.
@@ -72,6 +81,7 @@ Before handoff, verify:
 - [ ] Changes have impact assessment and decision records.
 - [ ] UAT scope, environment, tester, result, and evidence are recorded.
 - [ ] Known limitations, support owner, KPI baseline, and next review exist.
+- [ ] The first outcome review is scheduled (G11) and benefits cite KPI IDs.
 
 ## Handoff
 
