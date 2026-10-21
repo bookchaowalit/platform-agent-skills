@@ -8,6 +8,7 @@ tasks:
       - python3 scripts/skill_governance.py {{.CLI_ARGS}}
       - python3 tests/skill_governance_test.py
       - python3 tests/ui_review_gate_test.py
+      - python3 tests/plugin_agents_test.py
       - node --check qa-testing/scripts/ui_review.mjs
       - node --check qa-testing/scripts/ui_browsers.mjs
       - node --check qa-testing/scripts/ui_visual_diff.mjs

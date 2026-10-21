@@ -26,7 +26,7 @@ import yaml
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 NON_SKILL_DIRS = frozenset(
-    {"scripts", "tests", "docs", "node_modules", "vendor", "hooks"}
+    {"scripts", "tests", "docs", "node_modules", "vendor", "hooks", "agents"}
 )
 
 

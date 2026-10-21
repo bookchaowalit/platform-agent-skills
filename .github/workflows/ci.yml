@@ -25,6 +25,7 @@ jobs:
         python scripts/check_skills.py
         python scripts/skill_governance.py
         python tests/skill_governance_test.py
+        python tests/plugin_agents_test.py
 
   security:
     uses: bookchaowalit/platform-ci-workflows/.github/workflows/security.yml@c37ef9d113eefb3ed45429717cb7ca201192c3fc # v1.0.1

@@ -110,6 +110,8 @@ release approval. Sub-agents get one bounded subtask each and return the
 
 Models and efforts come from `claude_model` and `claude_effort` in
 `.github/agents/roles.yaml`; change them there and run `task subagents:sync`.
+Outside the solo-empire hub, the `solo` plugin ships the same roles as
+`solo:solo-<role>` (for example `solo:solo-explorer`); use those names there.
 Override per call with the Agent `model` parameter when a subtask is harder or
 easier than its role default.
 

@@ -108,6 +108,7 @@ The plugin carries:
 |---|---|---|
 | Skills | every `<name>/SKILL.md` at the root, plus `vendor/<name>/` | the skill packages listed above |
 | UI review gate | `qa-testing/scripts/ui_review_gate.py` (PreToolUse on Bash) | blocks a push to the default branch that changes UI files until the full-page visual review is signed off |
+| Sub-agents | `agents/solo-*.md` | the nine Solo Empire roles (explorer, implementer, debugger, reviewer, security, data, ui-verifier, researcher, social-intel) as `solo:solo-<role>` in every repository; see below |
 | Tool hub (MCP) | `.mcp.json` → `solo-empire` | the hosted remote MCP (`platform-mcp-remote-worker`): `list_cells`, `describe_cell`, `call_cell` for every cell, plus the CRM and AI tools. `hooks/mcp_auth_header.py` supplies the bearer from Infisical `/mcp` at connect time, so no token is stored in a config file (cloud sessions add the server themselves, see the remote MCP README) |
 
 The plugin has no `version`, so Claude Code tracks the latest commit on `main`: a merge here
@@ -116,6 +117,26 @@ install plugins that a repository's `.claude/settings.json` declares, so this hu
 CLI and the Desktop app; Codex keeps reading the same packages through `.agents/skills`.
 
 Validate the manifests with `npx -y @anthropic-ai/claude-code plugin validate ./`.
+
+### Sub-agents
+
+`agents/` holds portable copies of the nine sub-agent roles that the solo-empire hub defines in
+`.github/agents/roles.yaml`. Claude Code loads them as `solo:solo-<role>` (for example
+`solo:solo-explorer`) in any repository where the plugin is enabled. They keep the hub's tools,
+model, effort and preloaded skills, and return the same `solo-empire.subagent-handoff.v1` JSON.
+The portable copies differ from the hub copies only where the hub is assumed: skill files are
+read through `${CLAUDE_PLUGIN_ROOT}` (the plugin install path, substituted when the agent loads)
+instead of hub paths, and harness routing notes (Gemini, Grok, Muse, `apply_patch`) are dropped.
+Plugin agents cannot use `hooks`, `mcpServers` or `permissionMode`, so none of the roles do.
+
+The solo-empire hub keeps its own `.claude/agents/solo-*.md`. They are generated together with
+the Copilot, Codex and Gemini copies by the hub's `harness_agents.py`, so removing only the
+Claude copies would break that drift check. Plugin agents are namespaced, so the two sets do not
+collide: inside the hub use the bare `solo-<role>` names (the hub's own copies), elsewhere use
+`solo:solo-<role>`. When a role changes in `roles.yaml`, update the matching file in `agents/`
+in the same change; `tests/plugin_agents_test.py` (part of `task check`) checks that every role
+ships, that the frontmatter is plugin-safe, that read-only roles have no write tools, and that
+every `${CLAUDE_PLUGIN_ROOT}` path exists.
 
 ## Using the skills from a harness
 
