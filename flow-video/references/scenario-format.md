@@ -41,16 +41,17 @@ the skill.
 | `app` | host | Name on title cards and the gallery. |
 | `baseUrl` | required | Relative paths resolve against it. Tours stay on its origin. |
 | `viewport` | 1440×900 | Video size. A scenario may set its own (`390×844` for a phone flow). |
-| `readOnly` | `true` | `false` lets a scenario with `writes: true` run when `--allow-writes` is passed. |
-| `loginPath` | `^/(login\|signin\|sign-in\|auth/login)` | A regex. Landing here with a saved session stops the scenario as expired. |
-| `allowPost` | `[]` | Regexes for POST URLs that only read (search, GraphQL queries). They are let through in read-only mode. |
-| `roles` | `{}` | `label` shows on the chip, `storageState` comes from `ui_login.mjs`, `color` is optional. |
+| `readOnly` | `true` | Only GET, HEAD and OPTIONS reach the server; every other method (any case) is aborted. `false` lets a scenario with `writes: true` run when `--allow-writes` is passed. |
+| `loginPath` | `/(log[-_]?in\|sign[-_]?in)(/\|$)` | A regex tested on the path and the hash. Landing there with a saved session, or seeing a sign-in form on the first page, stops the scenario as expired. |
+| `allowPost` | `[]` | Regexes for POST URLs that only read (search, GraphQL queries). Only POST is let through; PUT, PATCH and DELETE never are. |
+| `allowWebSocket` | `[]` | Regexes for WebSocket URLs that only read (live updates). Any other socket is mocked: the page sees it open, the server never sees it. |
+| `roles` | `{}` | `label` shows on the chip. `storageState` comes from `ui_login.mjs` and is required for a role. `color` is an optional hex colour or name. |
 
 ## Scenario
 
 | Key | Meaning |
 | --- | --- |
-| `id` | Unique. Match the docs: `TOUR-<role>`, `UC-xx`. Also the file name. |
+| `id` | Unique, letters, digits, `-` and `_` only. Match the docs: `TOUR-<role>`, `UC-xx`. Also the file name. |
 | `role` | Key in `roles`. Leave it out for a public (signed-out) flow. |
 | `title`, `goal`, `outcome` | Title card, gallery text and end card. Write them in Thai for Thai users. |
 | `refs` | Requirement or use case IDs, shown in the gallery. |
@@ -68,10 +69,14 @@ the skill.
 - `include`: extra paths not in the menu: `["/share/customer-view/demo"]` or
   `[{ "path": "...", "label": "..." }]`.
 - `exclude`: regexes of paths to skip, for example `"^/admin/danger"`. Sign-out links
-  are always skipped.
+  (log out, sign out, log off, ออกจากระบบ, in the text or the path) and links with a
+  non-GET `data-method` or `rel=nofollow` are always skipped. Add an `exclude` for any
+  other link that changes state on GET.
 - `max`: page limit (default 30).
 - `denied`: regex of on-page text meaning "no access". The default covers common Thai
-  and English messages.
+  and English messages. It is matched against `content` only.
+- `content`: selector of the content area (default `main`, else `body`), so menu text
+  never counts as a message.
 - `scroll: false`: do not scroll each page.
 
 ## Step actions (one per step; `say` is optional but expected)
@@ -101,6 +106,20 @@ class names.
 - Five to twelve steps per use case. Split anything longer into two use cases.
 
 ## Output (`--out <dir>`)
+
+Scenario status in the manifest and gallery:
+
+- `ok`.
+- `failed`: a step could not be done, or the session had expired. See `<id>/failed.png`.
+- `blocked`: a step submitted data, read-only mode stopped it, and the video ends there.
+  Rewrite that step as an `expect` on the button, or record on staging with writes allowed.
+
+Writes blocked during a step that still worked (analytics, autosave) are listed on that
+step (`steps[].blocked`, ⚠ in the gallery). Look at the frame: if the app shows an error
+because of it, the video is misleading. Fix the scenario.
+
+Tour access per page: `open`, `denied` (message in the content area), `HTTP <code>`, or
+`redirected to <path>` (the app sent the role somewhere else).
 
 ```text
 index.html          gallery by role, click a step to seek

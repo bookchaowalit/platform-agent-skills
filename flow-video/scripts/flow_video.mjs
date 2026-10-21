@@ -30,8 +30,10 @@ import { join, resolve } from "node:path";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
-const WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
-const SKIP_LINK = /logout|log-out|sign-?out|ออกจากระบบ/i;
+// Read-only mode lets only these methods through; anything else (lower-case, WebDAV, custom) is
+// treated as a write.
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+const SKIP_LINK = /log[\s_-]*out|log[\s_-]*off|sign[\s_-]*out|ออกจากระบบ/i;
 
 function parseArgs(argv) {
   const args = { scenarios: "", out: "flow-video", only: "", role: "", font: "", slow: "1" };
@@ -53,7 +55,7 @@ function parseArgs(argv) {
 }
 
 const expandHome = (p) => (p || "").replace(/^~(?=\/|$)/, homedir());
-const slugId = (id) => String(id).replace(/[^a-zA-Z0-9_-]+/g, "-");
+const slugId = (id) => String(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 /** Validate the scenario file and fill defaults; throws with every problem listed. */
@@ -68,10 +70,12 @@ export function loadSpec(path) {
   for (const [i, sc] of (spec.scenarios || []).entries()) {
     const where = `scenarios[${i}]${sc.id ? ` (${sc.id})` : ""}`;
     if (!sc.id) problems.push(`${where}: id is required`);
+    else if (!/^[A-Za-z0-9_-]+$/.test(sc.id)) problems.push(`${where}: id may use only letters, digits, - and _ (it is the file name)`);
     else if (seen.has(sc.id)) problems.push(`${where}: duplicate id`);
     seen.add(sc.id);
     if (!sc.title) problems.push(`${where}: title is required`);
     if (sc.role && !spec.roles[sc.role]) problems.push(`${where}: role "${sc.role}" is not in roles`);
+    else if (sc.role && !spec.roles[sc.role].storageState) problems.push(`${where}: role "${sc.role}" has no storageState, so it would record the signed-out site under that role`);
     if (!sc.tour && !Array.isArray(sc.steps)) problems.push(`${where}: needs "tour" or "steps"`);
     for (const [j, step] of (sc.steps || []).entries()) {
       const actions = ["goto", "click", "fill", "select", "press", "hover", "scroll", "expect", "pause"].filter((k) => k in step);
@@ -81,6 +85,9 @@ export function loadSpec(path) {
     }
   }
   if (!spec.scenarios?.length) problems.push("scenarios is empty");
+  for (const [key, role] of Object.entries(spec.roles)) {
+    if (role.color && !/^(#[0-9a-fA-F]{3,8}|[a-zA-Z]+)$/.test(role.color)) problems.push(`roles.${key}.color must be a hex colour or a colour name`);
+  }
   if (problems.length) throw new Error(`invalid scenario file ${path}:\n  - ${problems.join("\n  - ")}`);
   return spec;
 }
@@ -172,10 +179,15 @@ function overlayInit(fontData) {
   };
   if (document.documentElement) boot();
   else document.addEventListener("DOMContentLoaded", boot, { once: true });
-  // Some frameworks replace <html> children on hydration; put the overlay back if it goes.
-  new MutationObserver(() => {
-    if (window.__flow && !document.querySelector("flow-video-overlay")) { window.__flow = null; boot(); }
-  }).observe(document, { childList: true, subtree: true });
+  // Some frameworks replace <html> or its children on hydration; put the overlay back if it goes.
+  // Only direct children are watched, so a busy page does not pay for every DOM change.
+  const watch = () => new MutationObserver(() => {
+    const host = document.querySelector("html > flow-video-overlay");
+    if (window.__flow && !host) { window.__flow = null; boot(); }
+  }).observe(document.documentElement, { childList: true });
+  if (document.documentElement) watch();
+  new MutationObserver(() => { if (window.__flow && !document.querySelector("flow-video-overlay")) { window.__flow = null; boot(); watch(); } })
+    .observe(document, { childList: true });
 }
 
 // ---------------------------------------------------------------- recording helpers
@@ -315,7 +327,12 @@ async function runSteps(page, ctx, sc, spec, rec) {
     } else {
       await page.waitForTimeout(step.pause ?? readTime(say, ctx.pace));
     }
-    ctx.checkSession();
+    await ctx.checkSession(n === 1);
+    if (ctx.blockedNavigation()) {
+      throw new Error(`step ${n} submits data (${ctx.blockedNavigation()}), which read-only mode blocked; point at the button with an "expect" step, or record this flow on staging with writes allowed`);
+    }
+    const fresh = ctx.takeBlocked();
+    if (fresh.length) rec.blocked(n, fresh);
     await rec.frame(n);
   }
 }
@@ -326,7 +343,10 @@ async function collectLinks(page, spec, tour) {
   const origin = new URL(spec.baseUrl).origin;
   const raw = await page.$$eval(nav, (els) => els.map((a) => ({
     // Links inside a collapsed menu group have no innerText; textContent still has the label.
-    href: a.href, text: (a.innerText.trim() || a.textContent.trim() || a.getAttribute("aria-label") || a.title || "").replace(/\s+/g, " ").trim(),
+    href: a.href, attr: a.getAttribute("href"),
+    text: (a.innerText.trim() || a.textContent.trim() || a.getAttribute("aria-label") || a.title || "").replace(/\s+/g, " ").trim(),
+    // Rails/Laravel-style links that change state (data-method="delete", rel=nofollow sign-out).
+    acts: Boolean(a.getAttribute("data-method") && a.getAttribute("data-method").toLowerCase() !== "get") || /\bnofollow\b/.test(a.rel || ""),
   })));
   const exclude = (tour.exclude || []).map((p) => new RegExp(p));
   const seen = new Set();
@@ -334,12 +354,12 @@ async function collectLinks(page, spec, tour) {
   for (const link of raw) {
     let u;
     try { u = new URL(link.href); } catch { continue; }
-    if (u.origin !== origin || SKIP_LINK.test(u.pathname) || SKIP_LINK.test(link.text)) continue;
+    if (u.origin !== origin || link.acts || SKIP_LINK.test(u.pathname + u.hash) || SKIP_LINK.test(link.text)) continue;
     if (exclude.some((re) => re.test(u.pathname))) continue;
-    const key = u.pathname.replace(/\/$/, "") || "/";
+    const key = (u.pathname.replace(/\/$/, "") || "/") + u.search + u.hash;
     if (seen.has(key)) continue;
     seen.add(key);
-    out.push({ path: key + u.search, label: link.text || key });
+    out.push({ path: key, attr: link.attr, label: link.text || key });
   }
   for (const extra of tour.include || []) {
     const key = typeof extra === "string" ? extra : extra.path;
@@ -353,7 +373,7 @@ async function runTour(page, ctx, sc, spec, rec) {
   const start = new URL(tour.start || "/", spec.baseUrl).href;
   await page.goto(start, { waitUntil: "load", timeout: 60000 });
   await settle(page);
-  ctx.checkSession();
+  await ctx.checkSession(true);
   const links = await collectLinks(page, spec, tour);
   rec.pages = [];
   const denied = new RegExp(tour.denied || "not in account scope|ไม่มีสิทธิ์|ไม่อยู่ในขอบเขต|access denied|permission denied", "i");
@@ -364,8 +384,10 @@ async function runTour(page, ctx, sc, spec, rec) {
     await overlay(page, "caption", [{ ...ctx.caption, say, n, total: links.length }]);
     const href = new URL(link.path, spec.baseUrl).href;
     // Click the real menu item when it is on screen, so the viewer sees where it lives.
-    const menu = page.locator(`a[href="${link.path}"], a[href="${href}"]`).filter({ visible: true }).first();
+    const q = (v) => String(v).replace(/["\\]/g, "\\$&");
+    const menu = page.locator([link.attr, link.path, href].filter(Boolean).map((h) => `a[href="${q(h)}"]`).join(", ")).filter({ visible: true }).first();
     let status = null;
+    ctx.resetNavStatus();
     if (await menu.count()) {
       const pt = await pointAt(page, menu, ctx.pace);
       if (pt) await overlay(page, "ring", [pt.x, pt.y]);
@@ -379,15 +401,23 @@ async function runTour(page, ctx, sc, spec, rec) {
       status = res?.status() ?? null;
     }
     await settle(page);
-    ctx.checkSession();
+    await ctx.checkSession(false);
+    status = status ?? ctx.navStatus();
     await overlay(page, "caption", [{ ...ctx.caption, say, n, total: links.length }]);
-    const info = await page.evaluate(() => ({
-      heading: (document.querySelector("h1")?.innerText || document.title || "").replace(/\s+/g, " ").trim(),
-      text: (document.body?.innerText || "").slice(0, 4000),
-      path: location.pathname + location.search,
-    }));
-    const access = status && status >= 400 ? `HTTP ${status}` : denied.test(info.text) ? "denied" : "open";
-    rec.pages.push({ n, label: link.label, path: link.path, landed: info.path, heading: info.heading, access });
+    // Read the content area only: the sidebar would otherwise match (or push past) the message.
+    const info = await page.evaluate((sel) => {
+      const area = document.querySelector(sel) || document.body;
+      return {
+        heading: ((area && area.querySelector("h1")) || document.querySelector("h1"))?.innerText?.replace(/\s+/g, " ").trim() || document.title || "",
+        text: (area?.innerText || "").slice(0, 4000),
+        pathname: location.pathname, path: location.pathname + location.search + location.hash,
+      };
+    }, tour.content || "main");
+    const wanted = new URL(href).pathname.replace(/\/$/, "") || "/";
+    const landed = info.pathname.replace(/\/$/, "") || "/";
+    const access = status && status >= 400 ? `HTTP ${status}` : denied.test(info.text) ? "denied"
+      : landed !== wanted ? `redirected to ${landed}` : "open";
+    rec.pages.push({ n, label: link.label, path: link.path, landed: info.path, heading: info.heading, access, status });
     await page.waitForTimeout(readTime(say, ctx.pace) / 2);
     await rec.frame(n);
     if (access === "open" && tour.scroll !== false) {
@@ -423,6 +453,8 @@ async function recordScenario(browser, spec, sc, opts, fontData, roleIndex) {
   const role = sc.role ? spec.roles[sc.role] : null;
   const dir = join(opts.out, ".raw", slugId(sc.id));
   rmSync(dir, { recursive: true, force: true });
+  // Clear the old frames so a passing re-record does not sit next to a stale failed.png.
+  rmSync(join(opts.out, slugId(sc.id)), { recursive: true, force: true });
   mkdirSync(join(opts.out, slugId(sc.id)), { recursive: true });
   const storageState = role?.storageState ? expandHome(role.storageState) : undefined;
   if (storageState && !existsSync(storageState)) throw new Error(`session for role "${sc.role}" not found: ${storageState} (run qa-testing/scripts/ui_login.mjs)`);
@@ -433,29 +465,50 @@ async function recordScenario(browser, spec, sc, opts, fontData, roleIndex) {
   });
   const writes = Boolean(sc.writes) && opts.allowWrites && spec.readOnly !== true;
   const blocked = [];
+  let pending = [];
+  let blockedNav = "";
+  let page = null;
   if (!writes) {
     const allow = (spec.allowPost || []).map((p) => new RegExp(p));
     await context.route("**/*", (route) => {
       const req = route.request();
-      if (WRITE_METHODS.has(req.method()) && !allow.some((re) => re.test(req.url()))) {
-        blocked.push(`${req.method()} ${new URL(req.url()).pathname}`);
-        return route.abort("blockedbyclient");
-      }
-      return route.continue();
+      const method = req.method().toUpperCase();
+      if (SAFE_METHODS.has(method) || (method === "POST" && allow.some((re) => re.test(req.url())))) return route.continue();
+      const what = `${method} ${new URL(req.url()).pathname}`;
+      blocked.push(what);
+      pending.push(what);
+      if (req.isNavigationRequest() && page && req.frame() === page.mainFrame()) blockedNav = what;
+      return route.abort("blockedbyclient");
+    });
+    // WebSocket frames bypass context.route. Unless a socket is listed as read-only, mock it:
+    // the page gets an open socket that never reaches the server.
+    const wsAllow = (spec.allowWebSocket || []).map((p) => new RegExp(p));
+    await context.routeWebSocket(/.*/, (ws) => {
+      if (wsAllow.some((re) => re.test(ws.url()))) { ws.connectToServer(); return; }
+      blocked.push(`WS ${new URL(ws.url()).pathname}`);
     });
   }
   await context.addInitScript(overlayInit, fontData);
-  const page = await context.newPage();
+  page = await context.newPage();
+  let navStatus = null;
+  page.on("response", (res) => {
+    if (res.request().isNavigationRequest() && res.frame() === page.mainFrame()) navStatus = res.status();
+  });
   // A saved session that has expired lands on the sign-in page; recording that would show the
   // public site under the role's name. Stop instead and say which session to renew.
-  const loginRe = new RegExp(spec.loginPath || "^/(login|signin|sign-in|auth/login)(/|$)", "i");
+  const loginRe = new RegExp(spec.loginPath || "/(log[-_]?in|sign[-_]?in)(/|$)", "i");
   let signedOut = "";
   if (storageState) {
     page.on("framenavigated", (frame) => {
-      if (frame === page.mainFrame() && loginRe.test(new URL(frame.url()).pathname)) signedOut = new URL(frame.url()).pathname;
+      if (frame !== page.mainFrame() || frame.url().startsWith("about:")) return;
+      const u = new URL(frame.url());
+      if (loginRe.test(u.pathname) || loginRe.test(u.hash)) signedOut = u.origin === new URL(spec.baseUrl).origin ? u.pathname + u.hash : u.href;
     });
   }
-  const checkSession = () => {
+  // `first`: also look for a sign-in form shown at the same URL. Only on the first page, because
+  // settings and account pages can show password fields on purpose.
+  const checkSession = async (first) => {
+    if (!signedOut && storageState && first && await page.locator("input[type=password]").filter({ visible: true }).count()) signedOut = "a sign-in form";
     if (signedOut) throw new Error(`role "${sc.role}" landed on ${signedOut}: the saved session has expired; sign in again with qa-testing/scripts/ui_login.mjs`);
   };
   const t0 = Date.now();
@@ -465,6 +518,7 @@ async function recordScenario(browser, spec, sc, opts, fontData, roleIndex) {
     steps: [], pages: null,
     mark(n, say) { this.steps.push({ n, say, at: Date.now() - t0 }); },
     status(n, code) { const s = this.steps.find((x) => x.n === n); if (s) s.status = code ?? null; },
+    blocked(n, list) { const s = this.steps.find((x) => x.n === n); if (s) s.blocked = [...new Set(list)]; },
     async frame(n) {
       const file = join(slugId(sc.id), `${String(n).padStart(2, "0")}.png`);
       await page.screenshot({ path: join(opts.out, file) }).catch(() => {});
@@ -472,16 +526,22 @@ async function recordScenario(browser, spec, sc, opts, fontData, roleIndex) {
       if (s) s.frame = file;
     },
   };
-  const ctx = { caption, pace, checkSession };
+  const ctx = {
+    caption, pace, checkSession,
+    blockedNavigation: () => blockedNav,
+    takeBlocked: () => { const out = pending; pending = []; return out; },
+    resetNavStatus: () => { navStatus = null; },
+    navStatus: () => navStatus,
+  };
   let error = null;
   try {
     // Title card on a blank page first, so the video opens on the use case, not a spinner.
-    await page.goto("about:blank");
     await page.setContent("<!doctype html><html lang='th'><body style='margin:0;background:#0f172a'></body></html>");
     await overlay(page, "card", [`<div class="k">${esc(spec.app || new URL(spec.baseUrl).host)} · ${esc(sc.id)}</div><h1>${esc(sc.title)}</h1>`
-      + (sc.goal ? `<p>${esc(sc.goal)}</p>` : "") + (caption.role ? `<span class="chip" style="background:${caption.color}">${esc(caption.role)}</span>` : "")]);
+      + (sc.goal ? `<p>${esc(sc.goal)}</p>` : "") + (caption.role ? `<span class="chip" style="background:${esc(caption.color)}">${esc(caption.role)}</span>` : "")]);
     await page.waitForTimeout(3000 * pace);
     await overlay(page, "card", [""]);
+    pending = [];
     if (sc.tour) await runTour(page, ctx, sc, spec, rec);
     else await runSteps(page, ctx, sc, spec, rec);
     await overlay(page, "caption", [{ ...caption, say: "" }]);
@@ -492,7 +552,8 @@ async function recordScenario(browser, spec, sc, opts, fontData, roleIndex) {
   } catch (e) {
     error = e.message.split("\n")[0];
     const failStep = rec.steps.at(-1)?.n ?? 0;
-    await overlay(page, "caption", [{ ...caption, say: `หยุด: ขั้นที่ ${failStep} ทำไม่สำเร็จ`, n: failStep, total: sc.steps?.length || 0 }]);
+    const say = blockedNav ? `หยุด: ขั้นที่ ${failStep} ส่งข้อมูลจริง (โหมดอ่านอย่างเดียวไม่ส่ง)` : `หยุด: ขั้นที่ ${failStep} ทำไม่สำเร็จ`;
+    await overlay(page, "caption", [{ ...caption, say, n: failStep, total: sc.steps?.length || 0 }]);
     await page.screenshot({ path: join(opts.out, slugId(sc.id), "failed.png") }).catch(() => {});
     await page.waitForTimeout(1500);
   }
@@ -513,11 +574,15 @@ async function recordScenario(browser, spec, sc, opts, fontData, roleIndex) {
     id: sc.id, title: sc.title, goal: sc.goal || "", outcome: sc.outcome || "", role: sc.role || "", roleLabel: caption.role,
     color: caption.color, kind: sc.tour ? "tour" : "steps", refs: sc.refs || [], video: webm, mp4, captions: `${slugId(sc.id)}.vtt`,
     durationMs: endMs, steps: rec.steps, pages: rec.pages, writesAllowed: writes, blockedWrites: [...new Set(blocked)],
-    status: error ? "failed" : "ok", error,
+    status: error ? (blockedNav ? "blocked" : "failed") : "ok", error,
   };
 }
 
 // ---------------------------------------------------------------- reports
+
+/** Text from the app (menu labels, headings) going into a Markdown table cell. */
+const md = (v) => String(v ?? "").replace(/[\\|`*_[\]<>]/g, (c) => (c === "<" ? "&lt;" : c === ">" ? "&gt;" : `\\${c}`)).replace(/\s+/g, " ");
+const code = (v) => `\`${String(v ?? "").replace(/[`|]/g, "")}\``;
 
 function pageMap(spec, results) {
   const tours = results.filter((r) => r.pages);
@@ -525,18 +590,18 @@ function pageMap(spec, results) {
   const lines = [`# Page map · ${spec.app || spec.baseUrl}`, "", `Recorded ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC from ${spec.baseUrl}. Read-only tour per role; generated by flow_video.mjs.`, ""];
   const paths = [];
   for (const t of tours) for (const p of t.pages) if (!paths.some((x) => x.path === p.path)) paths.push(p);
-  lines.push(`| Page | Path | ${tours.map((t) => t.roleLabel || t.role).join(" | ")} |`, `|---|---|${tours.map(() => "---").join("|")}|`);
+  lines.push(`| Page | Path | ${tours.map((t) => md(t.roleLabel || t.role)).join(" | ")} |`, `|---|---|${tours.map(() => "---").join("|")}|`);
   for (const p of paths) {
     const cells = tours.map((t) => {
       const hit = t.pages.find((x) => x.path === p.path);
-      return !hit ? "—" : hit.access === "open" ? "✓" : `✗ ${hit.access}`;
+      return !hit ? "—" : hit.access === "open" ? "✓" : `✗ ${md(hit.access)}`;
     });
-    lines.push(`| ${p.label} | \`${p.path}\` | ${cells.join(" | ")} |`);
+    lines.push(`| ${md(p.label)} | ${code(p.path)} | ${cells.join(" | ")} |`);
   }
-  lines.push("", "✓ open in the menu · ✗ in the menu but refused · — not in this role's menu", "");
+  lines.push("", "✓ open in the menu · ✗ in the menu but refused or sent elsewhere · — not in this role's menu", "");
   for (const t of tours) {
-    lines.push(`## ${t.roleLabel || t.role} (${t.id})`, "", "| # | Menu label | Heading on page | Landed at | Access |", "|---|---|---|---|---|");
-    for (const p of t.pages) lines.push(`| ${p.n} | ${p.label} | ${p.heading} | \`${p.landed}\` | ${p.access} |`);
+    lines.push(`## ${md(t.roleLabel || t.role)} (${t.id})`, "", "| # | Menu label | Heading on page | Landed at | Access |", "|---|---|---|---|---|");
+    for (const p of t.pages) lines.push(`| ${p.n} | ${md(p.label)} | ${md(p.heading)} | ${code(p.landed)} | ${md(p.access)} |`);
     lines.push("");
   }
   return lines.join("\n");
@@ -551,13 +616,13 @@ function gallery(spec, results) {
   }
   const fmt = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, "0")}`;
   const cards = [...byRole.entries()].map(([role, list]) => `
-  <section><h2><span class="dot" style="background:${list[0].color}"></span>${esc(role)}</h2><div class="grid">
+  <section><h2><span class="dot" style="background:${esc(list[0].color)}"></span>${esc(role)}</h2><div class="grid">
   ${list.map((r) => `<article class="card${r.status === "ok" ? "" : " bad"}" id="${esc(r.id)}">
-    <video controls preload="metadata" poster="${esc(r.steps[0]?.frame || "")}"><source src="${esc(r.mp4 || r.video)}" type="video/${r.mp4 ? "mp4" : "webm"}"><track kind="captions" srclang="th" label="ไทย" src="${esc(r.captions)}" default></video>
+    ${r.video ? `<video controls preload="metadata" poster="${esc(r.steps[0]?.frame || "")}"><source src="${esc(r.mp4 || r.video)}" type="video/${r.mp4 ? "mp4" : "webm"}"><track kind="captions" srclang="th" label="ไทย" src="${esc(r.captions)}" default></video>` : `<div class="novid">ไม่มีวิดีโอ</div>`}
     <div class="meta"><span class="tag">${r.kind === "tour" ? "พาชมทุกหน้า" : "Use case"}</span><span class="id">${esc(r.id)}</span><span class="dur">${fmt(r.durationMs)}</span>${r.refs.map((x) => `<span class="ref">${esc(x)}</span>`).join("")}</div>
     <h3>${esc(r.title)}</h3>${r.goal ? `<p class="goal">${esc(r.goal)}</p>` : ""}
-    ${r.status === "ok" ? "" : `<p class="err">อัดไม่สำเร็จ: ${esc(r.error)}</p>`}
-    <ol>${r.steps.map((s) => `<li><button data-t="${(s.at / 1000).toFixed(1)}"><span class="ts">${fmt(s.at)}</span>${esc(s.say || `ขั้นที่ ${s.n}`)}</button></li>`).join("")}</ol>
+    ${r.status === "ok" ? "" : `<p class="err">${r.status === "blocked" ? "หยุดที่ขั้นที่ส่งข้อมูลจริง (โหมดอ่านอย่างเดียว)" : "อัดไม่สำเร็จ"}: ${esc(r.error)}</p>`}
+    <ol>${r.steps.map((s) => `<li><button data-t="${(s.at / 1000).toFixed(1)}"><span class="ts">${fmt(s.at)}</span>${esc(s.say || `ขั้นที่ ${s.n}`)}${s.blocked ? ` <span class="warn" title="${esc(s.blocked.join(", "))}">⚠ กันการเขียน ${s.blocked.length}</span>` : ""}</button></li>`).join("")}</ol>
     ${r.outcome ? `<p class="out">ผลลัพธ์: ${esc(r.outcome)}</p>` : ""}
     ${r.blockedWrites.length ? `<p class="note">กันการเขียนข้อมูลไว้ ${r.blockedWrites.length} คำขอ (โหมดอ่านอย่างเดียว)</p>` : ""}
   </article>`).join("")}
@@ -572,7 +637,7 @@ header,main{max-width:1280px;margin:0 auto;padding:24px 16px}header h1{margin:0 
 h2{display:flex;align-items:center;gap:10px;font-size:22px;margin:28px 0 12px}.dot{width:14px;height:14px;border-radius:50%}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,520px),1fr));gap:16px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;padding-bottom:12px}.card.bad{border-color:#dc2626}
-video{width:100%;display:block;background:#000;aspect-ratio:16/10}
+video,.novid{width:100%;display:block;background:#000;aspect-ratio:16/10}.novid{display:flex;align-items:center;justify-content:center;color:#94a3b8}.warn{color:#d97706;font-size:13px}
 .meta{display:flex;flex-wrap:wrap;gap:8px;padding:12px 16px 0;font-size:13px;color:var(--mut)}.tag{color:var(--acc);font-weight:600}
 .ref{border:1px solid var(--line);border-radius:6px;padding:0 6px}
 h3{margin:4px 16px 0;font-size:19px}.goal,.out,.note,.err{margin:4px 16px;color:var(--mut)}.err{color:#dc2626}
@@ -616,9 +681,18 @@ async function main() {
   try {
     for (const sc of scenarios) {
       process.stdout.write(`flow_video: recording ${sc.id} (${sc.role || "no role"}) … `);
-      const r = await recordScenario(browser, spec, sc, opts, fontData, Math.max(0, roleOrder.indexOf(sc.role)));
+      let r;
+      try {
+        r = await recordScenario(browser, spec, sc, opts, fontData, Math.max(0, roleOrder.indexOf(sc.role)));
+      } catch (e) {
+        // Setup failures (missing or broken session file, ffmpeg) fail this scenario, not the run.
+        r = { id: sc.id, title: sc.title, goal: sc.goal || "", outcome: "", role: sc.role || "", roleLabel: spec.roles[sc.role]?.label || sc.role || "",
+          color: spec.roles[sc.role]?.color || ROLE_COLORS[0], kind: sc.tour ? "tour" : "steps", refs: sc.refs || [], video: null, mp4: null,
+          captions: null, durationMs: 0, steps: [], pages: null, writesAllowed: false, blockedWrites: [], status: "failed", error: e.message.split("\n")[0] };
+      }
       results.push(r);
-      console.log(`${r.status}${r.error ? `: ${r.error}` : ""} · ${(r.durationMs / 1000).toFixed(0)}s · ${r.steps.length} steps${r.blockedWrites.length ? ` · ${r.blockedWrites.length} write(s) blocked` : ""}`);
+      const warned = r.steps.filter((x) => x.blocked).map((x) => x.n);
+      console.log(`${r.status}${r.error ? `: ${r.error}` : ""}${warned.length ? ` · steps ${warned.join(",")} had writes blocked` : ""} · ${(r.durationMs / 1000).toFixed(0)}s · ${r.steps.length} steps${r.blockedWrites.length ? ` · ${r.blockedWrites.length} write(s) blocked` : ""}`);
     }
   } finally {
     await browser.close();

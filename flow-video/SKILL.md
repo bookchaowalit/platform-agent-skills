@@ -52,10 +52,11 @@ actions that are live in the environment you point at.
   the file sets `"readOnly": false`. The command then needs `--allow-writes`, and
   the run must target local or staging. On production that requires the owner's
   written approval of that exact flow, plus a clean-up.
-- **Blocked writes:** in read-only mode, `blockedWrites` lists what was blocked. A
-  use case whose point is a write (submit, approve) is recorded up to the button
-  with an `expect` step ("this button sends it for approval"). Do not fake the
-  result.
+- **Blocked writes:** in read-only mode only GET, HEAD and OPTIONS reach the server,
+  and WebSockets are mocked. `blockedWrites` lists what was stopped. A step that
+  submits a form ends the scenario as `blocked`. A use case whose point is a write
+  (submit, approve) is recorded up to the button, with an `expect` step ("this button
+  sends it for approval"). Do not fake the result.
 - **Expired session:** a scenario that lands on the sign-in page stops with an error
   rather than record the public site under the role's name. Sign in again.
 - **Audience edition:** for a client, show only that client's roles and use cases.
