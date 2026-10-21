@@ -1,0 +1,4 @@
+interface:
+  display_name: "Flow Video"
+  short_description: "Walkthrough videos and page map per role and use case"
+  default_prompt: "Use $flow-video to record a walkthrough video of each role's pages and main use cases for this app."
