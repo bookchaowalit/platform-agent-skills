@@ -130,6 +130,17 @@ related: <comma-separated sibling file names>
 | 12 | trd-api-data | TRD: API และ Data Model | Solution Architect | ER diagram, ตาราง/entity, API endpoints (method, path, auth, หน้าที่), integration contracts, sequence diagrams |
 | 13 | delivery-raid | แผนส่งมอบและ RAID | Delivery/PM | phase/milestone (gantt), deliverables, acceptance per phase, RAID log (R-xx, assumptions, issues, dependencies) |
 | 14 | decisions-glossary | Decision Log, คำถามค้าง และอภิธานศัพท์ | BA | D-xx decisions, Q-xx open questions พร้อมผู้ตัดสิน, glossary |
+| 15 | kpi-plan | KPI-PLAN (KPI and instrumentation plan) | Product | ใช้ template `templates/sdlc/kpi-and-instrumentation-plan.md` (architecture-docs): KPI tree, KPI definitions (formula, baseline, target), event spec, dashboards/alerts, instrumentation checks 1–7, ADR-0005 layer ต่อ KPI |
+
+`kpi-plan` is required by **product tier**, not docpack tier: every Tier A or
+Tier B product (roadmap `tier: A|B`) needs it, whatever its L-tier
+(`product_tier_required` in the registry). In the product repo it usually
+lives at `docs/measurement/kpi-and-instrumentation-plan.md` with queries in
+`analytics/kpi/<KPI-ID>.sql`; a docpack may link that file instead of copying
+it (`doc_type_map`). `task docpack:check` does not enforce
+`product_tier_required` yet, so check it by hand. It is the output of the
+lifecycle Measure stage; the Learn stage's outcome reviews stay outside the
+docpack (see SKILL.md).
 
 Every document ends with `## การอนุมัติ` (role, status, date, sign-off
 placeholder) before `## แหล่งข้อมูล`.

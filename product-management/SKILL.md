@@ -30,7 +30,12 @@ user experience explicit enough to build and test.
    `templates/sdlc/kpi-and-instrumentation-plan.md` (architecture-docs) —
    an outcome, a leading, and a guardrail KPI for every charter objective,
    with formula, minimum volume, baseline, dated target, and the events
-   that feed them. Draft it in phase 06 so G5 can approve it.
+   that feed them. Draft it in phase 06 so G5 can approve it. It is the
+   docpack type `kpi-plan` (KPI-PLAN), required for Tier A/B: save it as
+   `docs/measurement/kpi-and-instrumentation-plan.md` with queries in
+   `analytics/kpi/<KPI-ID>.sql`, and pick each KPI's ADR-0005 layer.
+   The lifecycle **Measure** stage exits when events are live, checks 1–7
+   pass and a dated baseline exists.
 7. Launch: write `templates/sdlc/launch-gtm-plan.md` at a high level in
    phase 05 (type, tier, window, budget) and in full in phase 10
    (audience, positioning, pricing, channels with consent, enablement,
@@ -42,7 +47,11 @@ user experience explicit enough to build and test.
    `templates/sdlc/outcome-review.md` at T+30, T+60, T+90, then on the KPI
    plan's cadence, and route each decision to a backlog item, experiment,
    change request, discovery question, roadmap change, KPI definition
-   change, or feature retirement.
+   change, or feature retirement. The **Learn** stage exits when the T+30
+   review is decided and each decision is a backlog task, filed with the
+   dedupe key and labels in architecture-docs
+   `docs/lifecycle/OUTCOME-REVIEW-TO-BACKLOG.md`. Details:
+   `references/measure-learn-loop.md`.
 9. Hand requirements detail and acceptance criteria to `business-analysis`,
    architecture to `solution-architecture`, and test design to `qa-testing`.
 
@@ -59,10 +68,16 @@ user experience explicit enough to build and test.
 - Pricing, contract scope, or client commitments are owner decisions; record
   them as open questions unless a signed record exists.
 - Screens that exist only in design are labelled planned, not built.
+- Backlog system (tasks-api vs GitHub Issues), CD standard and PostHog
+  sign-up are owner decisions D2, D3 and D4: write "pending D2/D3/D4",
+  never decide them in a document.
+- For autopilot repos, new tasks go in as `autopilot:proposed`; only the
+  owner approves them to `autopilot:todo`.
 
 ## Handoff
 
 Report the PRD version, prioritised scope, KPI plan version and
 instrumentation status, launch plan status, open experiments, the latest
-outcome review verdict, roadmap, screen/flow coverage, open decisions, and
+outcome review verdict and its backlog task links, the scorecard level
+(`app_goal_scorecard.py`) for Tier A/B, roadmap, screen/flow coverage, open decisions, and
 who must approve them.

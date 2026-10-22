@@ -50,17 +50,23 @@ tier (L1 Lite, L2 Standard, L3 Full). EV3 is the reference implementation.
 - Sending a PDF to a client, posting it, or uploading it anywhere is an
   external action → stop for explicit approval.
 - Personal names, contact details, secrets, raw client data → never in a pack.
-- Work started on or after 2026-10-16 also follows the 12-phase SDLC set in
-  architecture-docs `templates/sdlc/README.md`. Its SDLC measurement and launch
-  records are not docpack doc types: keep `kpi-and-instrumentation-plan.md`,
-  `launch-gtm-plan.md`, `experiment-log.md`, and one `outcome-review.md` per
-  review in the project's SDLC workspace, and link them from the docpack
-  overview (KPI plan from the prd success-metrics section, launch plan from
-  the runbook, latest outcome review from the overview status).
+- The KPI plan is docpack type `kpi-plan` (KPI-PLAN, number 15), required for
+  every Tier A/B product (registry `product_tier_required`; the checker does
+  not enforce it yet). Write it from architecture-docs
+  `templates/sdlc/kpi-and-instrumentation-plan.md`, usually at the repo's
+  `docs/measurement/`, and map it into the pack. Launch plan, experiment log
+  and outcome reviews stay outside the docpack in the project's SDLC
+  workspace: link them from the overview (launch plan from the runbook,
+  latest outcome review from the overview status).
 - When asked whether a released system's documentation is complete, also
-  check for a KPI plan with verified instrumentation and an outcome review
-  newer than its cadence. Report a missing or overdue one as a gap and route
-  it to `product-management`; do not invent figures to fill it.
+  check for a KPI plan with verified instrumentation (lifecycle Measure) and
+  an outcome review newer than its cadence whose decisions are backlog tasks
+  (lifecycle Learn, architecture-docs `docs/lifecycle/OUTCOME-REVIEW-TO-BACKLOG.md`).
+  Report a missing or overdue one as a gap and route it to
+  `product-management`; do not invent figures to fill it.
+- For Tier A/B, report the Big Loop scorecard level from hub
+  `infra/scripts/platform/app_goal_scorecard.py --repo <name>` (L3 needs the
+  KPI plan, `specs/` and a deploy workflow) next to the docpack result.
 - Also check the technical design detail documents listed in
   `references/doc-standard.md` (infrastructure and network, observability,
   capacity/performance/cost, failure modes, async integration, frontend,

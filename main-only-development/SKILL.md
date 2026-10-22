@@ -45,6 +45,16 @@ independent Git boundaries.
    development, stop and explain the conflict before creating any temporary
    branch or pull request flow.
 
+## Product clones, TDD and autopilot
+
+Product clones in the Big Loop also work main-only, by their own README.
+There, ADR-0004 TDD runs on `main`: the failing-test commit comes first, its
+red run is checked locally, and red and green are pushed together, never red
+alone; no squash or force-push after the red/green log. The autopilot in
+`productivity-tracking-web/.autopilot/` is the one place with short-lived
+`autopilot/*` branches, merged locally by the loop. Details:
+`references/tdd-and-autopilot-on-main.md`.
+
 ## Decision rules
 
 - A stale branch shown by an app is not proof that the Git ref still exists; inspect the repository and refresh the app after cleanup.
@@ -53,6 +63,7 @@ independent Git boundaries.
 - Never use `git reset --hard`, `git clean`, or force-push to make the branch list look clean.
 - Do not delete an attached worktree or a branch with unmerged commits or unidentified work.
 - Do not use root-repository instructions to change branches in nested repositories.
+- Merge locally and push; never `gh pr merge` unless the owner asks.
 
 ## Verify
 

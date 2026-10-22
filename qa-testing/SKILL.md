@@ -19,7 +19,11 @@ every test to evidence, and every gap to an owner.
    `templates/development-cycle/test-strategy.md` or
    `templates/positions/qa-test-engineer/quality-assurance-plan.md`.
 4. Write TC-xx cases (precondition, steps, expected result, linked FR-xx,
-   status, evidence) and a UAT script for business testers.
+   status, evidence) and a UAT script for business testers. For new work,
+   check ADR-0004 TDD+SDD: a `specs/<NNN>-<slug>/spec.md` with `AC-##`
+   scenarios, each linked to a test, and a red/green log (main-only repos:
+   local red run, red and green pushed together). See
+   `references/tdd-sdd-evidence.md`.
 5. Record defects with `templates/development-cycle/defect-record.md` and
    update the RTM status column through `business-analysis`.
 6. For any user-facing screen, run the UI quality gate in
@@ -49,9 +53,17 @@ every test to evidence, and every gap to an owner.
    triggers in `templates/sdlc/launch-gtm-plan.md` section 8 match the
    runbook and the go-live checklist.
 9. Check release readiness against `templates/development-cycle/quality-gate-pack.md`.
+10. After release, treat Sentry error issues, incident actions and failed
+    instrumentation as test work: a reproducing test first, filed as one
+    backlog task per architecture-docs
+    `docs/lifecycle/OUTCOME-REVIEW-TO-BACKLOG.md` (backlog choice pending D2).
 
 ## Decision rules
 
+- A bug fix without a failing test that reproduced it first is incomplete
+  unless the spec records an approved exception.
+- Coverage gate threshold = measured coverage rounded down; never lower it
+  without an owner-approved exception.
 - Distinguish developer retest, automated tests, client UAT, and business
   acceptance; only the client signs acceptance.
 - Untested or blocked cases stay visible with a reason; never drop them.
@@ -73,5 +85,6 @@ every test to evidence, and every gap to an owner.
 ## Handoff
 
 Report suites run with results, TC coverage of priority requirements, open
-defects by severity, UAT status, instrumentation check results, exit-criteria
-verdict, and next action.
+defects by severity, UAT status, instrumentation check results, the red/green log status per
+AC, the scorecard level (`app_goal_scorecard.py`) where it applies,
+exit-criteria verdict, and next action.
