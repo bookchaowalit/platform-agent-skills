@@ -61,6 +61,16 @@ tier (L1 Lite, L2 Standard, L3 Full). EV3 is the reference implementation.
   check for a KPI plan with verified instrumentation and an outcome review
   newer than its cadence. Report a missing or overdue one as a gap and route
   it to `product-management`; do not invent figures to fill it.
+- Also check the technical design detail documents listed in
+  `references/doc-standard.md` (infrastructure and network, observability,
+  capacity/performance/cost, failure modes, async integration, frontend,
+  tech-debt register, landscape row, vendor exit plan). Work started on or
+  after 2026-10-16 needs all of them (`N/A` + reason where a topic does not
+  apply); older systems with no new work use the "Expected for" column. They
+  are not docpack doc types, so `task docpack:check` will not flag them:
+  report each missing one, or one without an `N/A` reason, as a gap and route
+  it to `solution-architecture`. For the landscape, check the system's row in
+  the portfolio file, not a per-system file.
 
 ## Resources
 

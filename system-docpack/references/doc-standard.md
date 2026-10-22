@@ -117,7 +117,7 @@ related: <comma-separated sibling file names>
 |---|---|---|---|---|
 | 00 | overview | ภาพรวมระบบและสารบัญเอกสาร | Product | สรุประบบ 1 ย่อหน้า, สถานะปัจจุบัน, ผู้ใช้หลัก, ตารางรายการเอกสาร (รหัส/ชื่อ/ผู้อ่าน), วิธีอ่าน |
 | 01 | prd | Product Requirements (PRD) | Product | ปัญหาและเป้าหมาย, ผู้ใช้/persona, ขอบเขต in/out, ฟีเจอร์หลักพร้อมลำดับความสำคัญ, ตัวชี้วัดความสำเร็จ, roadmap/phase, ข้อสมมติฐานและความเสี่ยง |
-| 02 | architecture | System Architecture (SA) | Solution Architect | context diagram, components/containers, tech stack, data stores, integrations, deployment topology, ADR สำคัญ |
+| 02 | architecture | System Architecture (SA) | Solution Architect | architecture style + เหตุผล, quality-attribute scenarios, context diagram, components/containers, tech stack, data stores, integrations, deployment topology, ADR สำคัญ, fitness functions, ตารางเอกสารลงรายละเอียด phase 07 |
 | 03 | nfr-security | NFR และความปลอดภัย | Solution Architect + Security | performance, availability, scalability, security controls, privacy/PDPA, observability, backup/DR, เป้าหมายที่วัดได้ต่อ NFR-xx |
 | 04 | runbook | Runbook การติดตั้งและดูแลระบบ | DevOps | environments, วิธี build/deploy, config/secret (ชื่อตัวแปรเท่านั้น), health check, rollback, incident/troubleshooting, backup/restore |
 | 05 | srs | Software Requirements (SRS/FRD) | BA | บทบาทและสิทธิ์, use case/user story พร้อม acceptance criteria, FR-xx table (priority, phase, สถานะ) |
@@ -133,6 +133,48 @@ related: <comma-separated sibling file names>
 
 Every document ends with `## การอนุมัติ` (role, status, date, sign-off
 placeholder) before `## แหล่งข้อมูล`.
+
+## Technical design detail documents (SDLC phase 07)
+
+The docpack doc types above summarise a system; the technical depth behind
+`architecture`, `nfr-security`, `runbook`, and `trd-api-data` lives in these
+architecture-docs templates. They are SDLC artifacts, not docpack doc types:
+`task docpack:check` does not require them and the registry tiers do not
+change. Keep the copies in the project's SDLC workspace (or next to the pack
+for systems without one) and link each from the `02-architecture` detail
+section (path + version) or mark it `not_applicable` with a reason.
+
+Which rule applies:
+
+- **Work started on or after 2026-10-16** follows the SDLC index
+  (architecture-docs `templates/sdlc/README.md`): every template below is
+  required for every piece of work regardless of tier. A topic that does not
+  apply is written as `N/A` + reason inside the document and passes AI review;
+  small work may keep a template short or combine files, but every heading
+  stays. The "Expected for" column does not waive anything for this work.
+- **Existing systems with no new work since 2026-10-16** keep their docpack
+  tier. Use the "Expected for" column only as the gap check for them. L0
+  (product card only) needs none of these documents.
+- The landscape is one file per portfolio: check that the system has a
+  current row there, not a per-system file.
+
+| Template (architecture-docs `templates/`) | Covers | Linked from | Expected for |
+|---|---|---|---|
+| `sdlc/infrastructure-and-network-design.md` | environments, request path, DNS, TLS, edge/WAF/CDN, network boundaries, compute and runtime, storage, scaling/HA, IaC and drift, live verification | architecture (deployment), runbook | L2+, and any L1 system with production users |
+| `sdlc/observability-design.md` | SLIs/SLOs, log schema, metrics, traces and correlation IDs, dashboards, alert catalog mapped to runbook sections | nfr-security (reliability), runbook (monitoring) | L1+ in production; a system with no production deployment records `N/A` + reason |
+| `sdlc/capacity-performance-and-cost-plan.md` | workload model, performance budgets, bottlenecks, load/stress/spike/soak tests, capacity forecast, cost model, unit economics, budget alerts | nfr-security (performance), business-case | L2+ |
+| `sdlc/failure-mode-analysis.md` | FMEA, dependency failures, SPOFs, resilience patterns, degraded modes, data-correctness failures, game days | nfr-security (reliability), trd-api-data (execution semantics) | L2+ |
+| `sdlc/async-integration-contract.md` | events, queues, webhooks, streams, scheduled jobs and workers: schema, ordering, delivery, idempotency, retry, DLQ, outbox/saga, versioning | trd-api-data | any tier that has async work; otherwise `N/A` + reason |
+| `sdlc/frontend-architecture.md` | rendering per route, state, session/token storage, frontend security, Core Web Vitals, accessibility, i18n, tests | architecture, ux-flows | any tier with a UI; otherwise `N/A` + reason |
+| `sdlc/tech-debt-register.md` | known debt with cause, interest, risk, repayment plan, dependency/runtime currency | overview (status), decisions-glossary | L1+ |
+| `operations/system-landscape.md` | portfolio map: capabilities, owners, lifecycle, shared services, cross-system dependencies, data flows, vendors | architecture (review section) | one per portfolio; each L1+ system has a current row |
+| `development-cycle/vendor-dependency-review.md` § Lock-in and exit plan | lock-in level, data export test, exit effort and trigger | architecture (ADR), delivery-raid | every paid or production-critical vendor |
+
+`02-architecture` itself also carries architecture style and rationale,
+quality-attribute scenarios, a component view (C4 level 3), and architecture
+fitness functions. New SDLC work fills them (or `N/A` + reason per heading);
+for existing systems they are expected at L2+ and may be `not_applicable`
+with a reason at L1.
 
 ## Quality gate
 
