@@ -27,18 +27,19 @@ WRITE_TOOLS = {"Edit", "Write", "NotebookEdit"}
 PLUGIN_PATH = re.compile(r"\$\{CLAUDE_PLUGIN_ROOT\}/([A-Za-z0-9_./-]+)")
 
 
-def parse(path: Path) -> tuple[dict[str, object], str]:
+def parse(path: Path) -> tuple[dict[str, str | list[str]], str]:
     match = re.match(
         r"^---\n(.*?)\n---\n(.*)$", path.read_text(encoding="utf-8"), re.DOTALL
     )
     if not match:
         raise AssertionError(f"{path.name}: missing frontmatter")
-    fields: dict[str, object] = {}
+    fields: dict[str, str | list[str]] = {}
     current = ""
     for line in match.group(1).splitlines():
         if line.startswith("  - ") and current:
-            fields.setdefault(current, [])
-            fields[current].append(line[4:].strip())  # type: ignore[union-attr]
+            items = fields.setdefault(current, [])
+            if isinstance(items, list):
+                items.append(line[4:].strip())
             continue
         key, _, value = line.partition(":")
         current = key.strip()
@@ -59,7 +60,7 @@ class PluginAgentsTest(unittest.TestCase):
                 self.assertTrue(fields.get("tools"))
                 self.assertNotIn("Agent", str(fields["tools"]).split(", "))
                 self.assertFalse(PLUGIN_IGNORED_FIELDS & fields.keys())
-                for skill in fields.get("skills", []):  # type: ignore[union-attr]
+                for skill in fields.get("skills", []):
                     self.assertTrue(
                         (REPO_ROOT / skill / "SKILL.md").is_file()
                         or (REPO_ROOT / "vendor" / skill / "SKILL.md").is_file(),

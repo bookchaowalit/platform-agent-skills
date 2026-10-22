@@ -13,6 +13,7 @@ No path leads back to the solo-empire registry repository.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import importlib.util
 import json
 import os
@@ -57,7 +58,7 @@ def _parse_frontmatter(text: str) -> tuple[dict[str, Any], str]:
     except yaml.YAMLError as exc:
         raise ValueError(f"invalid frontmatter YAML: {exc}") from exc
     if not isinstance(loaded, dict):
-        raise ValueError("frontmatter must be a mapping")  # noqa: TRY004 - callers catch ValueError for every frontmatter error
+        raise ValueError("frontmatter must be a mapping")
     return loaded, text[closing + 5 :]
 
 
@@ -129,11 +130,11 @@ def validate_skill_package(skill_dir: Path) -> tuple[dict[str, Any], list[str]]:
     if not isinstance(interface, dict):
         errors.append(f"{skill_dir.name}/agents/openai.yaml: missing interface mapping")
         return summary, errors
-    for field in ("display_name", "short_description", "default_prompt"):
-        if not isinstance(interface.get(field), str) or not interface[field].strip():
-            errors.append(
-                f"{skill_dir.name}/agents/openai.yaml: missing interface.{field}"
-            )
+    errors.extend(
+        f"{skill_dir.name}/agents/openai.yaml: missing interface.{field}"
+        for field in ("display_name", "short_description", "default_prompt")
+        if not isinstance(interface.get(field), str) or not interface[field].strip()
+    )
     short_description = interface.get("short_description")
     if isinstance(short_description, str) and not 25 <= len(short_description) <= 64:
         errors.append(
@@ -183,7 +184,7 @@ def _audit_router(
     except (OSError, RuntimeError, ImportError) as exc:
         return {}, [f"agent router could not be loaded: {exc}"], warnings
 
-    routes = list(router.ROUTES) + [router.UNKNOWN_ROUTE]
+    routes = [*router.ROUTES, router.UNKNOWN_ROUTE]
     child_routes: dict[str, list[str]] = {}
     keyword_routes: dict[str, set[str]] = {}
     for route in routes:
@@ -192,14 +193,12 @@ def _audit_router(
             errors.append(
                 f"router route {route.name!r} references missing skill {route.child_skill!r}"
             )
-        for context_file in route.context_files:
-            if (
-                context_file.startswith("skills/")
-                and not (project_root / context_file[len("skills/") :]).is_file()
-            ):
-                errors.append(
-                    f"router route {route.name!r} references missing context file {context_file}"
-                )
+        errors.extend(
+            f"router route {route.name!r} references missing context file {context_file}"
+            for context_file in route.context_files
+            if context_file.startswith("skills/")
+            and not (project_root / context_file[len("skills/") :]).is_file()
+        )
         for keyword in route.keywords:
             keyword_routes.setdefault(keyword.casefold(), set()).add(route.name)
 
@@ -320,10 +319,8 @@ def audit(project_root: Path = PROJECT_ROOT) -> dict[str, Any]:
     skills: list[dict[str, Any]] = []
     for skill_dir in skill_dirs:
         summary, package_errors = validate_skill_package(skill_dir)
-        try:
+        with contextlib.suppress(ValueError):
             summary["path"] = relative(skill_dir / "SKILL.md", project_root)
-        except ValueError:
-            pass
         skills.append(summary)
         errors.extend(package_errors)
 
@@ -336,10 +333,14 @@ def audit(project_root: Path = PROJECT_ROOT) -> dict[str, Any]:
         readme_names = set(
             README_ENTRY_PATTERN.findall(readme_path.read_text(encoding="utf-8"))
         )
-    for name in sorted(skill_names - readme_names):
-        errors.append(f"README.md is missing inventory entry: {name}")
-    for name in sorted(readme_names - skill_names):
-        errors.append(f"README.md lists an unknown package: {name}")
+    errors.extend(
+        f"README.md is missing inventory entry: {name}"
+        for name in sorted(skill_names - readme_names)
+    )
+    errors.extend(
+        f"README.md lists an unknown package: {name}"
+        for name in sorted(readme_names - skill_names)
+    )
 
     router, router_errors, router_warnings = _audit_router(project_root, skill_names)
     errors.extend(router_errors)

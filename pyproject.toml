@@ -1,0 +1,41 @@
+# Not a package: the skills are Markdown. This pins the tools that validate them
+# (scripts/, tests/, the qa-testing gate scripts and hooks/) so CI installs from uv.lock.
+[project]
+name = "platform-agent-skills"
+version = "0.0.0"
+requires-python = ">=3.12"
+dependencies = ["pyyaml>=6.0.2,<7"]
+
+[dependency-groups]
+dev = ["mypy==2.4.0", "types-pyyaml>=6.0.12"]
+
+[tool.uv]
+package = false
+
+[tool.mypy]
+python_version = "3.12"
+files = ["scripts", "tests", "hooks", "qa-testing/scripts"]
+mypy_path = ["scripts", "qa-testing/scripts"]
+explicit_package_bases = true
+strict_equality = true
+warn_redundant_casts = true
+warn_unused_configs = true
+warn_unused_ignores = true
+check_untyped_defs = true
+
+[tool.ruff]
+target-version = "py312"
+extend-exclude = ["vendor"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F", "I", "B", "BLE", "UP", "C4", "SIM", "RUF", "PIE", "PT", "RET", "ISC",
+    "PERF", "LOG", "G", "FURB",
+]
+# E501: the formatter wraps code; long lines left are prose in messages. PT: the tests are
+# unittest suites (run as scripts by CI and `task check`), not pytest.
+ignore = ["E501", "PT"]
+
+[tool.ruff.lint.per-file-ignores]
+# The tests put scripts/ on sys.path before importing the module under test.
+"tests/*.py" = ["E402"]

@@ -89,6 +89,13 @@ class GateTest(unittest.TestCase):
         text = out.getvalue().strip()
         return json.loads(text) if text else None
 
+    def decide(self, command: str, cwd: Path | None = None) -> dict:
+        """run_gate for a command the gate must answer (deny or ask), not let through."""
+        decision = self.run_gate(command, cwd)
+        self.assertIsNotNone(decision, f"the gate let {command!r} through")
+        assert decision is not None  # narrowed for mypy; assertIsNotNone already failed
+        return decision
+
     def signoff(self, *extra: str) -> int:
         return ui_signoff.main(
             [
@@ -107,7 +114,7 @@ class GateTest(unittest.TestCase):
         )
 
     def test_blocks_prod_deploy_without_signoff(self) -> None:
-        decision = self.run_gate(
+        decision = self.decide(
             "rm -f .env.local && npx -y vercel@latest deploy --prod --yes --scope s"
         )
         self.assertEqual(decision["hookSpecificOutput"]["permissionDecision"], "deny")
@@ -130,14 +137,14 @@ class GateTest(unittest.TestCase):
         self.signoff()
         self.commit("src/app.css", ".a { color: red; }\n")
         self.assertEqual(
-            self.run_gate("vercel --prod")["hookSpecificOutput"]["permissionDecision"],
+            self.decide("vercel --prod")["hookSpecificOutput"]["permissionDecision"],
             "deny",
         )
 
     def test_cd_prefix_is_followed(self) -> None:
         other = Path(self.tmp.name) / "elsewhere"
         other.mkdir()
-        decision = self.run_gate(f"cd {self.repo} && vercel deploy --prod", cwd=other)
+        decision = self.decide(f"cd {self.repo} && vercel deploy --prod", cwd=other)
         self.assertEqual(decision["hookSpecificOutput"]["permissionDecision"], "deny")
 
     def test_repo_without_ui_files_is_not_gated(self) -> None:
@@ -232,7 +239,7 @@ class GateTest(unittest.TestCase):
             self.assertIsNone(self.run_gate("vercel --prod"))
         with mock.patch("ui_review_gate.github_status", return_value="failure"):
             self.assertEqual(
-                self.run_gate("vercel --prod")["hookSpecificOutput"][
+                self.decide("vercel --prod")["hookSpecificOutput"][
                     "permissionDecision"
                 ],
                 "deny",
@@ -275,7 +282,7 @@ class GateTest(unittest.TestCase):
         sh(self.repo, "remote", "set-head", "origin", "main")
 
     def deny_reason(self, command: str, cwd: Path | None = None) -> str | None:
-        decision = self.run_gate(command, cwd)
+        decision = self.decide(command, cwd)
         return (
             decision["hookSpecificOutput"]["permissionDecisionReason"]
             if decision

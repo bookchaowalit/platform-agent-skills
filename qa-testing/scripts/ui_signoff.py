@@ -5,7 +5,7 @@ Run it after ui_review.mjs and after reading every screenshot slice:
 
     python3 ui_signoff.py --repo . --report ui-review/report.json \
         --reviewer claude --verdict pass \
-        --notes "Reviewed /a and /b at 320–1440; no crowding, figures shown once"
+        --notes "Reviewed /a and /b at 320-1440; no crowding, figures shown once"
 
 It refuses when the report still has blocker findings, unless --accept-blockers gives
 a reason (for example, a known third-party widget). Evidence is written outside the
