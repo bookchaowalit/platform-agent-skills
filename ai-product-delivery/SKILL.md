@@ -17,7 +17,7 @@ Ship the smallest useful vertical slice while making quality, cost, security, an
 6. Add an evaluation set that can be rerun after prompt, model, retrieval, or code changes. Record thresholds and known false positives or false negatives.
 7. Roll out safely with environment-specific configuration, feature flags or a small audience where appropriate, logs that omit sensitive data, and a rollback path.
 8. Handoff with operating notes: owner, data flow, limits, monitoring, support procedure, docs location, and the next improvement.
-9. Measure and learn: events live with a baseline, outcome review by T+30, and each decision, Sentry error or incident action filed as one backlog task (tasks-api pending D2). See `references/delivery-loop.md`.
+9. Measure and learn: events live with a baseline, outcome review by T+30, and each decision, Sentry error or incident action filed as one backlog task (tasks-api, D2). See `references/delivery-loop.md`.
 
 ## Decision rules
 
@@ -26,7 +26,7 @@ Ship the smallest useful vertical slice while making quality, cost, security, an
 - Treat model output as untrusted input. Validate schemas, permissions, links, file paths, and side effects before execution.
 - Require human approval for production changes, external communication, financial commitments, and destructive operations.
 - If scope, data access, or success criteria are unclear, narrow the slice and document the assumption instead of silently expanding it.
-- Backlog system, CD standard and PostHog sign-up are owner decisions D2, D3 and D4; write "pending D2/D3/D4" instead of deciding them.
+- Owner decisions 2026-10-23: tasks-api is the single backlog (D2), deploys come from Git after CI with a smoke test (D3, ADR-0003), PostHog free tier (D4; sign-up, DPA and consent banner still owner actions).
 - Before database changes, follow the repository backup and migration procedure; before changing a nested repository, confirm that the task belongs there.
 
 ## Completion standard

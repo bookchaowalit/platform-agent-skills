@@ -31,7 +31,8 @@ Source: architecture-docs `docs/architecture/decisions/ADR-0004-tdd-sdd-standard
   recommendations instead.
 - What deploys from `main` ships on push: run the full checks and a local build
   first, check deploy/health after the push, and revert if it breaks. The CD
-  standard (ADR-0003) is **pending D3**.
+  standard is ADR-0003 (accepted 2026-10-23, D3): Railway services verify the
+  deploy with `deploy-railway.yml` v1.3.0 `mode: verify`.
 
 ## Autopilot branches
 
@@ -45,8 +46,8 @@ not merge them by hand outside the loop's rules.
 
 ## Where the next task comes from
 
-The next piece of work is a task in the single backlog (tasks-api proposed,
-**pending D2**; GitHub Issues as fallback), created from outcome reviews,
+The next piece of work is a task in the single backlog (tasks-api,
+D2, decided 2026-10-23; GitHub issues feed it), created from outcome reviews,
 Sentry errors, incidents and experiment results per architecture-docs
 `docs/lifecycle/OUTCOME-REVIEW-TO-BACKLOG.md`. A main-only session does not
 keep its own task list in a Markdown file.

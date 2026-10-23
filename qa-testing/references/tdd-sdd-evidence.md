@@ -52,12 +52,12 @@ evidence, not instead of it.
 
 | Signal | What QA does |
 |---|---|
-| Sentry error issue in a live repo | Write the failing test that reproduces it before the fix; link the Sentry issue in the defect and the task (key `sentry/<project>/<fingerprint>`) |
+| Sentry error issue in a live repo | Write the failing test that reproduces it before the fix; link the Sentry issue in the defect and the task (key `sentry/<project>/<issue id>`, filed by `empire-backlog-sync` once it writes) |
 | Incident action (INC-xx) | Regression test for the failure mode, or a recorded reason why it cannot be tested |
 | Experiment with SRM or broken events | Invalid; defect for the instrumentation; rerun |
 | Outcome review flags a KPI drop | Check the instrumentation (checks 1–7) before anyone reads the drop as real |
 
-Filing rules (dedupe, labels, backlog choice pending D2) are in
+Filing rules (dedupe keys and labels; tasks-api is the single backlog, D2) are in
 architecture-docs `docs/lifecycle/OUTCOME-REVIEW-TO-BACKLOG.md`.
 
 ## Autopilot gates

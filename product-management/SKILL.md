@@ -68,9 +68,9 @@ user experience explicit enough to build and test.
 - Pricing, contract scope, or client commitments are owner decisions; record
   them as open questions unless a signed record exists.
 - Screens that exist only in design are labelled planned, not built.
-- Backlog system (tasks-api vs GitHub Issues), CD standard and PostHog
-  sign-up are owner decisions D2, D3 and D4: write "pending D2/D3/D4",
-  never decide them in a document.
+- Owner decisions 2026-10-23: tasks-api is the single backlog (D2), ADR-0003
+  CD with a post-deploy smoke test (D3), PostHog free tier (D4; sign-up, DPA
+  and consent banner are still owner actions).
 - For autopilot repos, new tasks go in as `autopilot:proposed`; only the
   owner approves them to `autopilot:todo`.
 

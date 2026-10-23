@@ -56,7 +56,7 @@ every test to evidence, and every gap to an owner.
 10. After release, treat Sentry error issues, incident actions and failed
     instrumentation as test work: a reproducing test first, filed as one
     backlog task per architecture-docs
-    `docs/lifecycle/OUTCOME-REVIEW-TO-BACKLOG.md` (backlog choice pending D2).
+    `docs/lifecycle/OUTCOME-REVIEW-TO-BACKLOG.md` (tasks-api, D2).
 
 ## Decision rules
 

@@ -28,15 +28,17 @@ read the source before applying a rule to a disputed case.
 
 ## Release
 
-- CD standard is ADR-0003, **pending D3**. Until it is accepted, follow the
-  owning repo's documented deploy target and check health after the push.
+- CD standard is ADR-0003, accepted 2026-10-23 (D3): deploy from Git after CI,
+  never from a working tree, and smoke-test after deploy. Railway services use
+  `platform-ci-workflows` `deploy-railway.yml` v1.3.0 with `mode: verify`
+  (addendum A1).
 - Staged rollout guardrails and rollback triggers come from the launch plan.
 
 ## Measure and learn
 
 - **Measure** stage exit: events live, instrumentation checks 1–7 pass,
-  dated baseline. Layer-2 product analytics (PostHog EU) is **pending D4**
-  (sign-up and DPA); until then measure outcome KPIs with system-of-record SQL
+  dated baseline. Layer-2 product analytics is PostHog EU free tier
+  (D4); until the owner's sign-up, DPA and consent banner are done, measure outcome KPIs with system-of-record SQL
   (`analytics/kpi/<KPI-ID>.sql`). Never send prompts, completions or user
   text to analytics; send event names and counts.
 - **Learn** stage exit: outcome review (`templates/sdlc/outcome-review.md`)
@@ -48,8 +50,9 @@ read the source before applying a rule to a disputed case.
 
 ## Backlog and autopilot
 
-- Single backlog: platform-empire tasks-api is proposed, **pending D2**;
-  GitHub Issues in the owning repo are the fallback. Do not decide D2.
+- Single backlog: platform-empire tasks-api (D2, decided 2026-10-23); GitHub
+  issues labelled `autopilot` or `backlog` feed it through `empire-backlog-sync`
+  (dry run until its host, ADR-0006, is accepted).
 - Autopilot (`productivity-tracking-web/.autopilot/`): planner proposes
   `autopilot:proposed` issues, the owner approves to `autopilot:todo`, then
   maker → separate reviewer → visual gate → local merge. Caps: 3 tasks per

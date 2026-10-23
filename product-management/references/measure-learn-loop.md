@@ -10,7 +10,7 @@ before quoting numbers or rules):
 - architecture-docs `docs/architecture/decisions/ADR-0005-product-analytics-standard.md`
   — analytics layers (accepted 2026-10-21).
 - architecture-docs `operations/policies/TASK-SOURCE-OF-TRUTH.md` — single
-  backlog (status **proposed, pending D2**).
+  backlog (accepted 2026-10-23, owner decision D2).
 - Hub `repository-catalog/roadmaps/BIG-LOOP-PLAN-2026-10-21.md` — Definition
   of Done and Wave 4.
 
@@ -41,11 +41,11 @@ reason instead of skipping silently.
 | Layer | Use for | Tool |
 |---|---|---|
 | 1 System of record | Money, orders, accounts, bookings and other regulated counts | Versioned SQL on the app's own DB, read-only role |
-| 2 Product analytics | Funnels, activation, experiments | PostHog Cloud EU, pseudonymous `distinct_id`, consent-gated browser events — **pending D4** (sign-up and DPA) |
+| 2 Product analytics | Funnels, activation, experiments | PostHog Cloud EU free tier (D4), pseudonymous `distinct_id`, consent-gated browser events; goes live after the owner's sign-up, DPA and consent banner |
 | 3 Page analytics | Marketing and content sites | Cloudflare Web Analytics or Umami; never an outcome KPI |
 
 Client work never sends end-user data into the owner's PostHog project.
-Until D4 is done, plan layer-2 events but measure outcome KPIs with layer 1.
+Until the owner's PostHog sign-up and DPA are done, plan layer-2 events but measure outcome KPIs with layer 1.
 
 ## Outcome review
 
@@ -59,15 +59,16 @@ Until D4 is done, plan layer-2 events but measure outcome KPIs with layer 1.
   `outcome-review/<OR-id>#<row>` and labels `source:outcome-review`,
   `type:*`, `P0`–`P3`. Write the task link back into "Tracked in".
 
-## Backlog (pending D2)
+## Backlog (D2, decided 2026-10-23)
 
-- Proposed: platform-empire tasks-api is the single backlog; upsert by
-  external identity (`PUT /v1/tasks/external/<source>/<key>`).
-- Alternative until D2: a GitHub issue in the owning repo, with the key in
-  the body so a later sync can import it without duplicates.
-- The automated sync worker (Sentry, incidents, outcome reviews → tasks) is
-  **pending D2**; run the runbook by hand until it exists.
-- Do not decide D2 in a document or a skill run; write "pending D2".
+- platform-empire tasks-api is the single backlog; upsert by external
+  identity (`PUT /v1/tasks/external/<source>/<key>`). GitHub issues labelled
+  `autopilot` or `backlog` feed it (`github/<owner>/<repo>#<n>`).
+- The sync worker `empire-backlog-sync` (platform-empire) files GitHub
+  issues, Sentry errors, decided outcome reviews and incident reviews. It runs
+  as a dry run until its Railway cron host (ADR-0006, proposed) and tokens are
+  in place; until then, and always for experiment cards, file by hand with the
+  same keys.
 
 ## Autopilot
 
@@ -89,10 +90,10 @@ workflow; Tier A/B only). A product has closed the loop once when: events
 live → outcome review → task in the backlog → done and released → measured
 again in the next review.
 
-## Pending owner decisions
+## Owner decisions (2026-10-23)
 
-| ID | Effect on this skill |
-|---|---|
-| D2 | Which backlog is the rule; whether the sync worker is built |
-| D3 | CD standard (ADR-0003): how "released" is proven before measuring |
-| D4 | PostHog sign-up and DPA: layer-2 events cannot go live before it |
+| ID | Decision | Effect on this skill |
+|---|---|---|
+| D2 | tasks-api is the single backlog | File every action there by its key; the sync worker is in dry run |
+| D3 | ADR-0003 accepted | "Released" = deployed from Git after CI and smoke-tested (`deploy-railway.yml` v1.3.0 `mode: verify`) before measuring |
+| D4 | PostHog free tier | Owner still signs up, accepts the DPA and adds a consent banner; layer-2 events wait for that |
