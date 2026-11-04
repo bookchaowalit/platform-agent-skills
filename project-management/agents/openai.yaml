@@ -1,0 +1,4 @@
+interface:
+  display_name: "Project Management"
+  short_description: "Charter, baseline, RAID, status, change control, gates, closeout"
+  default_prompt: "Use $project-management to set the project baseline, track RAID and status against it, control changes, and close with evidence."

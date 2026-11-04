@@ -1,0 +1,4 @@
+interface:
+  display_name: "Product Owner"
+  short_description: "Backlog ordering, refinement, DoR, and story acceptance"
+  default_prompt: "Use $product-owner to order and refine the backlog, set the iteration goal, and accept or reject delivered items with evidence."

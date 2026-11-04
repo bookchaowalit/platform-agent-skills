@@ -1,6 +1,6 @@
 ---
 name: product-management
-description: Own product and UX artifacts — problem framing, personas, PRD and prioritised scope, KPIs and instrumentation, launch plans, experiments, outcome reviews, roadmap, screen inventory and user flows. Use when defining what a product does and for whom, or writing or reviewing a PRD, roadmap or KPI plan. Not for AI delivery (ai-product-delivery), detailed requirements (business-analysis), content (content-distribution) or client proposals (client-discovery-and-proposals).
+description: Own product and UX artifacts — problem framing, personas, PRD and prioritised scope, KPIs and instrumentation, launch plans, experiments, outcome reviews, roadmap, screen inventory and user flows. Use when defining what a product does and for whom, or writing or reviewing a PRD, roadmap or KPI plan. Not for AI delivery (ai-product-delivery), backlog ordering and story acceptance (product-owner), project schedule and status (project-management), detailed requirements (business-analysis), content (content-distribution) or client proposals (client-discovery-and-proposals).
 ---
 
 # Product Management
@@ -53,7 +53,9 @@ user experience explicit enough to build and test.
    `docs/lifecycle/OUTCOME-REVIEW-TO-BACKLOG.md`. Details:
    `references/measure-learn-loop.md`.
 9. Hand requirements detail and acceptance criteria to `business-analysis`,
-   architecture to `solution-architecture`, and test design to `qa-testing`.
+   backlog ordering and item acceptance to `product-owner`, schedule, RAID
+   and status to `project-management`, architecture to
+   `solution-architecture`, and test design to `qa-testing`.
 
 ## Decision rules
 
