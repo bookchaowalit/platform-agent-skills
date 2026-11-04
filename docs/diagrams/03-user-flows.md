@@ -62,7 +62,7 @@ Sources: README.md, Taskfile.yml, scripts/skill_governance.py (README_ENTRY_PATT
 flowchart LR
     A["Scenario JSON: tour or steps"] --> B["flow_video.mjs --scenarios file"]
     B --> C{"scenario writes AND --allow-writes AND readOnly not true?"}
-    C -->|no| D["Non GET/HEAD/OPTIONS requests aborted and listed"]
+    C -->|no| D["Non GET/HEAD/OPTIONS aborted and listed, except POST matching allowPost and WebSockets matching allowWebSocket"]
     C -->|yes| E["Writes allowed"]
     D --> F["webm, vtt, frames, manifest.json, page-map.md, index.html gallery"]
     E --> F
