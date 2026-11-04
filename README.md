@@ -47,6 +47,7 @@ instructions have one source of truth and are not duplicated.
 - content-distribution — evidence-backed content planning and measurement
 - data-engineering — governed lake-first data products, contracts, quality, lineage, and replay
 - flow-video — walkthrough videos per role and use case (role tours with a role × page map, captioned use-case recordings, read-only by default, gallery)
+- game-engineering — game engineer and game developer: engine choice, frame/memory budgets, asset and build pipelines, ports, gameplay slices, and playtests
 - govern-ai-skills — skill gap audit, lifecycle, routing, metadata, and context governance
 - graphic-design — design principles, art style vocabulary, and critique checklist for graphics and campaigns
 - lead-research-and-crm — lead qualification, outreach, and CRM hygiene

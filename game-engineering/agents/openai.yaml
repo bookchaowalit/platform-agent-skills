@@ -1,0 +1,4 @@
+interface:
+  display_name: "Game Engineering"
+  short_description: "Game engine, budgets, builds, gameplay slices, and playtests"
+  default_prompt: "Use $game-engineering to design, build, profile, and playtest a game slice."
