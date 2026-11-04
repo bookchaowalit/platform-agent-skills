@@ -150,6 +150,33 @@ class AccessTokenTest(unittest.TestCase):
         self.assertEqual(calls, ["refresh_token", "refresh_token"])
 
 
+class DefaultVisibilityTest(unittest.TestCase):
+    def test_every_create_ignores_the_domain_default_visibility(self) -> None:
+        urls = []
+
+        def api(token, method, url, body=None, headers=None):
+            urls.append((method, url))
+            return reply({"id": "new"}, {"Location": "https://upload"})
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "a.vtt"
+            path.write_bytes(b"x")
+            with (
+                mock.patch.object(drive_publish, "api", api),
+                mock.patch.object(
+                    drive_publish.urllib.request,
+                    "urlopen",
+                    return_value=reply({"id": "f"}),
+                ),
+            ):
+                drive_publish.make_folder(StubToken(), "flows", None)
+                drive_publish.upload_file(StubToken(), path, "parent")
+        creates = [url for method, url in urls if method == "POST"]
+        self.assertEqual(len(creates), 2)
+        for url in creates:
+            self.assertIn("ignoreDefaultVisibility=true", url)
+
+
 class PrivateParentTest(unittest.TestCase):
     def check(self, meta: dict) -> None:
         with mock.patch.object(drive_publish, "api", return_value=reply(meta)):

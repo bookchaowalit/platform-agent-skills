@@ -213,7 +213,7 @@ def make_folder(token: AccessToken, name: str, parent: str | None) -> str:
     res = api(
         token.get(),
         "POST",
-        "https://www.googleapis.com/drive/v3/files?fields=id",
+        "https://www.googleapis.com/drive/v3/files?fields=id&ignoreDefaultVisibility=true",
         json.dumps(meta).encode(),
         {"Content-Type": "application/json"},
     )
@@ -233,7 +233,7 @@ def upload_file(token: AccessToken, path: Path, parent: str) -> None:
     start = api(
         token.get(),
         "POST",
-        "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id",
+        "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id&ignoreDefaultVisibility=true",
         meta,
         {
             "Content-Type": "application/json; charset=UTF-8",
