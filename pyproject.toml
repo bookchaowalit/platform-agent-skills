@@ -14,8 +14,8 @@ package = false
 
 [tool.mypy]
 python_version = "3.12"
-files = ["scripts", "tests", "hooks", "qa-testing/scripts"]
-mypy_path = ["scripts", "qa-testing/scripts"]
+files = ["scripts", "tests", "hooks", "qa-testing/scripts", "flow-video/scripts"]
+mypy_path = ["scripts", "qa-testing/scripts", "flow-video/scripts"]
 explicit_package_bases = true
 strict_equality = true
 warn_redundant_casts = true
