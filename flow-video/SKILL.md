@@ -1,6 +1,6 @@
 ---
 name: flow-video
-description: Record walkthrough videos of a running web app per role and use case, so the owner, a client or a new tester can see what pages and flows exist without reading code. A role tour visits every menu page that role can see and writes a role × page map. A use case video plays a scripted scenario (goto, click, fill, scroll) with Thai captions, a visible cursor and highlighted targets. Output is WebM (MP4 when ffmpeg has libx264), captions, one frame per step and a gallery page. It is read-only by default and aborts write requests. Use when asked for a demo, walkthrough, motion, screen recording, flow video, use-case video, a "what does each role see" map, onboarding or handover material, or when a vibe-coded app has grown past what the owner can keep in their head. Not for UX auditing (ux-review), test strategy (qa-testing) or designing new flows (product-management).
+description: Record read-only walkthrough videos of a running web app — per-role tours that map every page a role sees, and scripted use-case videos with Thai captions. Use when asked for a demo, walkthrough, screen recording, flow or use-case video, a "what does each role see" map, or onboarding and handover material. Not for UX auditing (ux-review), test strategy (qa-testing) or designing flows (product-management).
 ---
 
 # Flow Video

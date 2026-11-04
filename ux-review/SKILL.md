@@ -1,6 +1,6 @@
 ---
 name: ux-review
-description: Audit and fix the UX of a running web app end to end, with evidence. The phases are product map from code, personas, sitemap and route sweep, authorization matrix, persona flows and flow tests, then section-by-section page review at every width. They continue with interaction states, accessibility and mobile performance, Thai copy and production readiness, data and figure consistency, heuristic and IA scoring, a fix loop, and a re-check on production. Use when asked to review, audit, QA or polish a product's UX or UI, to check a site before or after release, to run a UX checklist across an organisation's apps, or when a reader found a UI problem that passing tests missed. Not for writing a PRD or designing new flows (product-management), new visual design (impeccable), or test strategy and UAT (qa-testing).
+description: Audit and fix the UX of a running web app end to end with evidence — route sweep, role and persona flows, page review at every width, interaction states, accessibility, Thai copy, data consistency, a fix loop and a production re-check. Use when asked to review, audit or polish a product's UX or UI, before or after release, or when users found a UI problem tests missed. Not for PRDs or new flows (product-management), new visual design (impeccable) or test strategy (qa-testing).
 ---
 
 # UX Review

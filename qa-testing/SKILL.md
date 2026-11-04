@@ -1,6 +1,6 @@
 ---
 name: qa-testing
-description: Plan and evidence software quality for Solo Empire systems — test strategy, test levels, environments, test cases with expected results, entry/exit criteria, defect records, UAT scripts, quality-gate evidence linked to requirements, and the full-page UI visual review (cross-browser and device capture, visual baseline diff, accessibility and mobile performance) with sign-off before a UI release. Use when designing tests or UAT for a system, writing a test-uat document, assessing release readiness from test evidence, reconciling test results with the RTM, or reviewing, merging or deploying any user-facing UI change.
+description: Plan and evidence software quality — test strategy and levels, test cases, entry/exit criteria, defects, UAT scripts, gate evidence linked to requirements, and the full-page UI visual review (cross-browser capture, baseline diff, accessibility, mobile performance) before a UI release. Use when designing tests or UAT, judging release readiness, reconciling results with the RTM, or reviewing, merging or deploying a user-facing UI change.
 ---
 
 # QA and Testing

@@ -1,6 +1,6 @@
 ---
 name: product-management
-description: Own product and UX artifacts for Solo Empire systems — problem framing, personas, product vision, PRD with scope and prioritised features, success metrics, KPI and instrumentation plan, launch and go-to-market plan, experiments, post-launch outcome reviews, phased roadmap, screen inventory, user flows, and design-system notes. Use when defining what a product should do and for whom, writing or reviewing a PRD or roadmap, prioritising features, defining KPIs, planning a product launch, running a product A/B test, reviewing outcomes after release, or producing UX flows and screen inventories; not for AI-specific delivery (ai-product-delivery), detailed requirements and traceability (business-analysis), content calendars or channel experiments (content-distribution), or client proposals and pricing quotes (client-discovery-and-proposals).
+description: Own product and UX artifacts — problem framing, personas, PRD and prioritised scope, KPIs and instrumentation, launch plans, experiments, outcome reviews, roadmap, screen inventory and user flows. Use when defining what a product does and for whom, or writing or reviewing a PRD, roadmap or KPI plan. Not for AI delivery (ai-product-delivery), detailed requirements (business-analysis), content (content-distribution) or client proposals (client-discovery-and-proposals).
 ---
 
 # Product Management
