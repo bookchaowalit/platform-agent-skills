@@ -61,6 +61,7 @@ instructions have one source of truth and are not duplicated.
 - system-docpack — tiered per-system document packs and PDFs across the portfolio
 - unused-file-cleanup — read-only scan for unreferenced files, verification, and approved scoped removal
 - ux-review — phased UX audit and fix loop: product map, routes, authorization, persona flows, page-by-page and interaction-state review, copy, figures, scoring, live re-check
+- xr-engineering — VR/XR runtime choice (WebXR first), frame-time budgets, device matrix, interactions, locomotion and comfort, headset playtests
 
 ## Layout
 

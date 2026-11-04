@@ -1,0 +1,4 @@
+interface:
+  display_name: "XR Engineering"
+  short_description: "VR/XR runtime, frame budgets, comfort, and playtests"
+  default_prompt: "Use $xr-engineering to design, build, profile, and comfort-test a VR/XR experience."
