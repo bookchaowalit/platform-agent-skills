@@ -28,7 +28,10 @@ decide whether each delivered item is accepted.
    `templates/sdlc/definition-of-ready-and-done.md`. Record the change and
    any open question in the refinement log.
 5. Set the iteration or increment goal as one outcome sentence, commit only
-   items that meet the DoR, and note the capacity basis.
+   items that meet the DoR, and note the capacity basis. An item that misses
+   a DoR condition enters only with an exception approved under the DoR
+   exception policy (owner approval for spec exceptions); record the
+   approver, date, and reference. A recorded gap alone does not admit it.
 6. Accept: compare each delivered item with its acceptance criteria and the
    DoD, using evidence (tests from `qa-testing`, a demo, UAT, screenshots, a
    `flow-video` recording). Record accept, reject, or accept-with-defect,
