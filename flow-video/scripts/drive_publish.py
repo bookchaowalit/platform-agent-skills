@@ -28,6 +28,7 @@ import mimetypes
 import os
 import secrets
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.parse
@@ -40,9 +41,11 @@ STATE_FILE = Path.home() / ".local/state/flow-video/drive-auth.json"
 SKIP = {".raw"}
 CHUNK = 8 * 1024 * 1024
 TOKEN_MARGIN = 300  # renew the access token this many seconds before it expires
-MAX_STALLS = (
-    5  # give up when the server acknowledges no new bytes this many times in a row
-)
+# Give up when the server acknowledges no new bytes this many times in a row.
+MAX_STALLS = 5
+# Transient server or network failures in a row before giving up on a file.
+MAX_RETRIES = 5
+RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
 mimetypes.add_type("video/webm", ".webm")
 mimetypes.add_type("text/vtt", ".vtt")
 mimetypes.add_type("text/markdown", ".md")
@@ -60,10 +63,18 @@ def env(name: str) -> str:
 def write_private(path: Path, text: str) -> None:
     """Write a secret so that no other user can read it, not even for a moment."""
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w") as fh:
-        os.fchmod(fh.fileno(), 0o600)  # an existing file keeps its old mode otherwise
-        fh.write(text)
+    # A fresh 0600 file swapped into place: an existing file, hard link or symlink at
+    # `path` is replaced, never written through.
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.")
+    try:
+        with os.fdopen(fd, "w") as fh:
+            fh.write(text)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        Path(tmp).unlink(missing_ok=True)
+        raise
 
 
 def post_form(url: str, fields: dict) -> dict:
@@ -213,7 +224,7 @@ def make_folder(token: AccessToken, name: str, parent: str | None) -> str:
     res = api(
         token.get(),
         "POST",
-        "https://www.googleapis.com/drive/v3/files?fields=id",
+        "https://www.googleapis.com/drive/v3/files?fields=id&ignoreDefaultVisibility=true",
         json.dumps(meta).encode(),
         {"Content-Type": "application/json"},
     )
@@ -226,6 +237,16 @@ def acknowledged_end(headers) -> int:
     return int(rng.rsplit("-", 1)[1]) + 1 if rng else 0
 
 
+def backoff(retries: int, path: Path, why: str) -> int:
+    """Wait before retrying a transient failure; exit once MAX_RETRIES in a row have failed."""
+    if retries >= MAX_RETRIES:
+        sys.exit(
+            f"drive_publish: upload of {path.name} failed {retries} times in a row (last: {why})"
+        )
+    time.sleep(min(2**retries, 32))
+    return retries + 1
+
+
 def upload_file(token: AccessToken, path: Path, parent: str) -> None:
     size = path.stat().st_size
     mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
@@ -233,7 +254,7 @@ def upload_file(token: AccessToken, path: Path, parent: str) -> None:
     start = api(
         token.get(),
         "POST",
-        "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id",
+        "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id&ignoreDefaultVisibility=true",
         meta,
         {
             "Content-Type": "application/json; charset=UTF-8",
@@ -245,9 +266,11 @@ def upload_file(token: AccessToken, path: Path, parent: str) -> None:
     with path.open("rb") as fh:
         offset = 0
         stalls = 0
+        retries = 0
+        probe = False  # after a failure, ask the server how much it stored before sending more
         while True:
             fh.seek(offset)
-            chunk = fh.read(CHUNK)
+            chunk = b"" if probe else fh.read(CHUNK)
             end = offset + len(chunk) - 1
             headers = {
                 "Content-Length": str(len(chunk)),
@@ -260,13 +283,24 @@ def upload_file(token: AccessToken, path: Path, parent: str) -> None:
                 urllib.request.urlopen(req)
                 return
             except urllib.error.HTTPError as e:
+                if e.code in RETRY_STATUSES:
+                    retries = backoff(retries, path, f"HTTP {e.code}")
+                    probe = True
+                    continue
                 if e.code != 308:
                     sys.exit(
                         f"drive_publish: upload of {path.name} failed → {e.code}: {e.read().decode(errors='replace')[:300]}"
                     )
                 # The server may keep fewer bytes than were sent; resume from what it acknowledged.
                 acked = acknowledged_end(e.headers)
-            stalls = stalls + 1 if acked <= offset else 0
+            except (urllib.error.URLError, OSError) as e:
+                retries = backoff(retries, path, str(getattr(e, "reason", e)))
+                probe = True
+                continue
+            if not probe:
+                stalls = stalls + 1 if acked <= offset else 0
+            probe = False
+            retries = 0
             if stalls >= MAX_STALLS:
                 sys.exit(
                     f"drive_publish: upload of {path.name} stalled at byte {offset} of {size}"

@@ -58,19 +58,21 @@ class WritePrivateTest(unittest.TestCase):
             self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
             self.assertEqual(path.read_text(), "two")
 
-    def test_file_is_never_created_world_readable(self) -> None:
+    def test_symlink_is_replaced_not_written_through(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "elsewhere"
+            target.write_text("untouched")
+            target.chmod(0o644)
             path = Path(tmp) / "token"
-            real_open = os.open
-            modes = []
-
-            def spy(p, flags, mode=0o777):
-                modes.append(mode)
-                return real_open(p, flags, mode)
-
-            with mock.patch.object(drive_publish.os, "open", spy):
-                drive_publish.write_private(path, "secret")
-            self.assertEqual(modes, [0o600])
+            path.symlink_to(target)
+            drive_publish.write_private(path, "secret")
+            self.assertFalse(path.is_symlink())
+            self.assertEqual(path.read_text(), "secret")
+            self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+            self.assertEqual(target.read_text(), "untouched")
+            self.assertEqual(
+                sorted(p.name for p in Path(tmp).iterdir()), ["elsewhere", "token"]
+            )
 
 
 class UploadResumeTest(unittest.TestCase):
@@ -127,6 +129,64 @@ class UploadResumeTest(unittest.TestCase):
             self.assertIn("stalled", str(stop.exception))
 
 
+def server_error(code: int) -> urllib.error.HTTPError:
+    return urllib.error.HTTPError(
+        "https://upload", code, "error", Message(), io.BytesIO(b"")
+    )
+
+
+class TransientFailureTest(unittest.TestCase):
+    def run_upload(self, data: bytes, outcomes: list) -> list:
+        sent = []
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "video.webm"
+            path.write_bytes(data)
+
+            def urlopen(req):
+                sent.append(req.headers["Content-range"])
+                outcome = outcomes.pop(0)
+                if isinstance(outcome, Exception):
+                    raise outcome
+                return reply({"id": "file"})
+
+            with (
+                mock.patch.object(drive_publish, "CHUNK", 4096),
+                mock.patch.object(drive_publish.time, "sleep"),
+                mock.patch.object(
+                    drive_publish,
+                    "api",
+                    return_value=reply(headers={"Location": "https://upload"}),
+                ),
+                mock.patch.object(drive_publish.urllib.request, "urlopen", urlopen),
+            ):
+                drive_publish.upload_file(StubToken(), path, "parent")
+        return sent
+
+    def test_server_error_asks_for_status_then_resumes(self) -> None:
+        sent = self.run_upload(
+            b"x" * 10240,
+            [server_error(503), resume_incomplete("bytes=0-2999"), "done"],
+        )
+        self.assertEqual(
+            sent, ["bytes 0-4095/10240", "bytes */10240", "bytes 3000-7095/10240"]
+        )
+
+    def test_network_error_retries_and_upload_can_finish_on_the_probe(self) -> None:
+        sent = self.run_upload(b"x" * 100, [urllib.error.URLError("reset"), "done"])
+        self.assertEqual(sent, ["bytes 0-99/100", "bytes */100"])
+
+    def test_gives_up_after_max_retries(self) -> None:
+        failures = [server_error(500) for _ in range(drive_publish.MAX_RETRIES + 1)]
+        with self.assertRaises(SystemExit) as stop:
+            self.run_upload(b"x" * 100, failures)
+        self.assertIn("times in a row", str(stop.exception))
+
+    def test_client_errors_are_not_retried(self) -> None:
+        with self.assertRaises(SystemExit) as stop:
+            self.run_upload(b"x" * 100, [server_error(404)])
+        self.assertIn("404", str(stop.exception))
+
+
 class AccessTokenTest(unittest.TestCase):
     def test_renews_before_expiry_and_caches_otherwise(self) -> None:
         clock = [1000.0]
@@ -148,6 +208,33 @@ class AccessTokenTest(unittest.TestCase):
             clock[0] += 1600  # within TOKEN_MARGIN of the hour
             self.assertEqual(token.get(), "t2")
         self.assertEqual(calls, ["refresh_token", "refresh_token"])
+
+
+class DefaultVisibilityTest(unittest.TestCase):
+    def test_every_create_ignores_the_domain_default_visibility(self) -> None:
+        urls = []
+
+        def api(token, method, url, body=None, headers=None):
+            urls.append((method, url))
+            return reply({"id": "new"}, {"Location": "https://upload"})
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "a.vtt"
+            path.write_bytes(b"x")
+            with (
+                mock.patch.object(drive_publish, "api", api),
+                mock.patch.object(
+                    drive_publish.urllib.request,
+                    "urlopen",
+                    return_value=reply({"id": "f"}),
+                ),
+            ):
+                drive_publish.make_folder(StubToken(), "flows", None)
+                drive_publish.upload_file(StubToken(), path, "parent")
+        creates = [url for method, url in urls if method == "POST"]
+        self.assertEqual(len(creates), 2)
+        for url in creates:
+            self.assertIn("ignoreDefaultVisibility=true", url)
 
 
 class PrivateParentTest(unittest.TestCase):
