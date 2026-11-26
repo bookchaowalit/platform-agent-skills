@@ -1,6 +1,6 @@
 ---
 name: system-docpack
-description: Create, complete, audit, and publish the per-system document pack (PRD, architecture, NFR, runbook, SRS, UX flows, test/UAT, RTM, business and delivery docs) and its PDFs for any Solo Empire portfolio system, client project, or our own apps. Use when asked whether a system's documentation is complete, to bring a system up to the EV3-style docpack, to add a new system to the portfolio docpack registry, or to rebuild docpack PDFs.
+description: Create, complete, audit, and publish the per-system document pack (PRD, architecture, NFR, runbook, SRS, UX flows, test/UAT, RTM, business and delivery docs) and its PDFs for any Solo Empire portfolio system, client project, or our own apps. Use when asked whether a system's documentation is complete, to bring a system up to the EV3-style docpack, to add a new system to the portfolio docpack registry, or to rebuild docpack PDFs. Also use before starting a spec, feature or refactor in a system, to read and update its As-Is / To-Be file (docs/diagrams/01-business-process.md) and name the gap the work moves.
 ---
 
 # System Docpack
@@ -12,6 +12,10 @@ tier (L1 Lite, L2 Standard, L3 Full). EV3 is the reference implementation.
 
 1. Run `task docpack:check` (add `-- --system <id>` or `-- --json`) to see
    which systems and doc types are missing, malformed, or have stale PDFs.
+   It does not check the As-Is / To-Be file: also run
+   `task report:as-is-to-be` in `platform-ops-cli` and treat the system's
+   `problems` in `data/generated/as-is-to-be/as-is-to-be.json` (missing file,
+   no Gap table, stale) as docpack gaps.
 2. Read `references/doc-standard.md` for tiers, file names, front matter,
    required sections, and writing rules. Do not reload it per document.
 3. New system → add a row to
@@ -44,8 +48,9 @@ tier (L1 Lite, L2 Standard, L3 Full). EV3 is the reference implementation.
 - Every system keeps `docs/diagrams/01-business-process.md` in the As-Is /
   To-Be layout of `references/as-is-to-be.md` (As-Is from code, To-Be from a
   written source, a `## Gap` table with `done|doing|todo|blocked|decide`).
-  Before a spec, feature or refactor, read it and name the gap the work moves;
-  update it in the same change. A missing file, a missing gap table or a
+  Before a spec, feature or refactor, read it and name the gap the work moves
+  (a refactor that leaves the process unchanged says "no gap moved"); update
+  it in the same change. A missing file, a missing gap table or a
   `Last reviewed` older than 30 days is a docpack gap. The cross-repo picture
   is `task report:as-is-to-be` in `platform-ops-cli`.
 

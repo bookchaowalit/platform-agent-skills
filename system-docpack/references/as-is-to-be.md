@@ -7,6 +7,12 @@ clone and draws them side by side with the gap progress, so the layout below is
 a contract: keep the headings, the `Last reviewed` line and the gap table
 columns exactly as written.
 
+One file per repository, at the repository root. The report reads only that
+path. A repository that holds several systems (for example an app under
+`apps/<name>/`) keeps the main system in the root file and may add
+`<subdir>/docs/diagrams/01-business-process.md` for the others; the report does
+not read those yet, so link each from the root file's Open questions.
+
 ## Layout
 
 ````markdown
@@ -66,6 +72,7 @@ Sources: `specs/SPEC-002.md`
     contact.
   - `Evidence`: the spec, PR, issue, owner-board item or commit that proves the
     status. A `done` row without evidence counts as `todo`.
+  - A `|` inside a cell is written `\|`; the report reads it as a literal pipe.
 - **Keep it current.** Update the file in the same change that:
   merges a spec or feature that moves a gap, changes the process the As-Is
   shows, or lands a new To-Be source. Bump `Last reviewed` and the commit each
@@ -75,5 +82,9 @@ Sources: `specs/SPEC-002.md`
 ## Before larger work
 
 Before you start a spec, a feature or a refactor in a system, open its
-`01-business-process.md` (or the hub report) and say which gap the work moves.
-If the file is missing, write it first from the code and the specs.
+`01-business-process.md` in the checkout or worktree you are editing and say
+which gap the work moves (or "no gap moved" for a refactor that leaves the
+process as it is). The hub report reads the clone folder, not your worktree, so
+use it for the cross-system picture only; to see your branch in it, run
+`task report:as-is-to-be -- --root <folder holding your worktree>`. If the file
+is missing, write it first from the code and the specs.
