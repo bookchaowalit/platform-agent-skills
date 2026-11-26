@@ -61,25 +61,19 @@ def _main_checkout(repo_root: Path) -> Path:
 
 
 def architecture_root(project_root: Path, environ: Any = os.environ) -> Path:
-    """The architecture documents (architecture-docs SPEC-001): SOLO_ARCHITECTURE_ROOT, else an
+    """The architecture documents (architecture-docs SPEC-001): SOLO_ARCHITECTURE_ROOT, else the
+    local store snapshot (SOLO_ARCHITECTURE_SNAPSHOT, default ~/.cache/solo-empire/architecture-docs,
+    known by its .snapshot.json stamp; a warning when it is older than 24 h), else an
     architecture-docs checkout that has the role coverage registry, beside this repository's main
-    clone or in the other visibility folder (public/private), else the local store snapshot
-    (SOLO_ARCHITECTURE_SNAPSHOT, default ~/.cache/solo-empire/architecture-docs, known by its
-    .snapshot.json stamp; a warning when it is older than 24 h)."""
+    clone or in the other visibility folder (public/private)."""
     override = (environ.get("SOLO_ARCHITECTURE_ROOT") or "").strip()
     if override:
         chosen = Path(override).expanduser()
         if (chosen / ".snapshot.json").is_file():
             _warn_if_stale(chosen)
         return chosen
-    parent = _main_checkout(project_root).parent
-    candidates = [parent / "architecture-docs"]
-    if parent.name in ("public", "private"):
-        other = "private" if parent.name == "public" else "public"
-        candidates.append(parent.parent / other / "architecture-docs")
-    for candidate in candidates:
-        if (candidate / ROLE_COVERAGE_PATH).is_file():
-            return candidate
+    # The store is the source since the SPEC-001 phase 3 cutover (2026-11-26): the snapshot wins
+    # over a checkout, which is frozen and only the fallback.
     snapshot_override = (environ.get("SOLO_ARCHITECTURE_SNAPSHOT") or "").strip()
     snapshot = (
         Path(snapshot_override).expanduser()
@@ -89,6 +83,14 @@ def architecture_root(project_root: Path, environ: Any = os.environ) -> Path:
     if (snapshot / ".snapshot.json").is_file():
         _warn_if_stale(snapshot)
         return snapshot.resolve()
+    parent = _main_checkout(project_root).parent
+    candidates = [parent / "architecture-docs"]
+    if parent.name in ("public", "private"):
+        other = "private" if parent.name == "public" else "public"
+        candidates.append(parent.parent / other / "architecture-docs")
+    for candidate in candidates:
+        if (candidate / ROLE_COVERAGE_PATH).is_file():
+            return candidate
     return candidates[0]
 
 
