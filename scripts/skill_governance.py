@@ -40,7 +40,34 @@ APPROVED_ROUTER_OVERLAPS = {
 }
 ROLE_COVERAGE_PATH = Path(
     "docs/registries/ROLE-COVERAGE.yaml"
-)  # inside the solo-architecture checkout
+)  # inside the architecture documents
+
+
+def architecture_root(project_root: Path, environ: Any = os.environ) -> Path:
+    """The architecture documents (architecture-docs SPEC-001): SOLO_ARCHITECTURE_ROOT, else the
+    architecture-docs checkout beside this one or in the other visibility folder (public/private),
+    else the local store snapshot (SOLO_ARCHITECTURE_SNAPSHOT, default
+    ~/.cache/solo-empire/architecture-docs, known by its .snapshot.json stamp)."""
+    override = (environ.get("SOLO_ARCHITECTURE_ROOT") or "").strip()
+    if override:
+        return Path(override).expanduser()
+    parent = project_root.parent
+    candidates = [parent / "architecture-docs"]
+    if parent.name in ("public", "private"):
+        other = "private" if parent.name == "public" else "public"
+        candidates.append(parent.parent / other / "architecture-docs")
+    for candidate in candidates:
+        if candidate.is_dir():
+            return candidate
+    snapshot_override = (environ.get("SOLO_ARCHITECTURE_SNAPSHOT") or "").strip()
+    snapshot = (
+        Path(snapshot_override).expanduser()
+        if snapshot_override
+        else Path.home() / ".cache" / "solo-empire" / "architecture-docs"
+    )
+    if (snapshot / ".snapshot.json").is_file():
+        return snapshot.resolve()
+    return candidates[0]
 
 
 def relative(path: Path, project_root: Path = PROJECT_ROOT) -> str:
@@ -242,14 +269,11 @@ def _audit_router(
 def _audit_role_coverage(project_root: Path) -> tuple[dict[str, Any], list[str]]:
     """Expose declared role groups without skills as candidates, not failures."""
     errors: list[str] = []
-    architecture = Path(
-        os.environ.get("SOLO_ARCHITECTURE_ROOT")
-        or project_root.parent / "solo-architecture"
-    )
+    architecture = architecture_root(project_root)
     registry_path = architecture / ROLE_COVERAGE_PATH
     if not registry_path.is_file():
         return {
-            "skipped": f"solo-architecture checkout not found at {architecture}"
+            "skipped": f"architecture documents not found at {architecture} (set SOLO_ARCHITECTURE_ROOT)"
         }, []
     try:
         registry = yaml.safe_load(registry_path.read_text(encoding="utf-8"))
