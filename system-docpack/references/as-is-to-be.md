@@ -9,9 +9,10 @@ columns exactly as written.
 
 One file per repository, at the repository root. The report reads only that
 path. A repository that holds several systems (for example an app under
-`apps/<name>/`) keeps the main system in the root file and may add
-`<subdir>/docs/diagrams/01-business-process.md` for the others; the report does
-not read those yet, so link each from the root file's Open questions.
+`apps/<name>/`) keeps the main system in the root file and must add
+`<subdir>/docs/diagrams/01-business-process.md` for each other system; the report
+does not read those yet, so link each from the root file's Open questions and
+check them by hand (a missing one is a docpack gap).
 
 ## Layout
 
@@ -98,7 +99,7 @@ is missing, write it first from the code and the specs.
 - Legacy files without a Gap table show as "not on the standard" until someone
   adds the table; bring them over one repository at a time.
 - The report reads only the repository-root file; monorepo sub-system files are
-  checked by hand.
+  checked by hand (see the layout rule above).
 - Diagrams are summaries of the process, not every error code or branch; the code
   and its tests stay the source of truth. Independent review asked for more
   branch detail in the ai-gateway diagrams (shared budget per attempt, dry run

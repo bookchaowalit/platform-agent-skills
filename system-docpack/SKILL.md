@@ -22,7 +22,8 @@ for auditing or writing a docpack.
    docpack gaps both the repository's entry in `missing` and the `problems` of
    its entry in `systems` (`data/generated/as-is-to-be/as-is-to-be.json`). The
    report reads the clone folder: for a branch or worktree under audit, pass
-   `-- --root <its folder> --out <scratch folder>`. Sub-system folders are not
+   `-- --root <its checkout folder> --out <scratch folder>` (a checkout given
+   directly as the root is reported as one system). Sub-system folders are not
    scanned; check their files by hand.
 2. Read `references/doc-standard.md` for tiers, file names, front matter,
    required sections, and writing rules. Do not reload it per document.
