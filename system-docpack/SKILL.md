@@ -10,12 +10,18 @@ tier (L1 Lite, L2 Standard, L3 Full). EV3 is the reference implementation.
 
 ## Workflow
 
+Starting a spec, feature or refactor (not a docpack audit)? Do only the
+"Before larger work" steps in `references/as-is-to-be.md`; the steps below are
+for auditing or writing a docpack.
+
 1. Run `task docpack:check` (add `-- --system <id>` or `-- --json`) to see
    which systems and doc types are missing, malformed, or have stale PDFs.
    It does not check the As-Is / To-Be file: also run
-   `task report:as-is-to-be` in `platform-ops-cli` and treat the system's
-   `problems` in `data/generated/as-is-to-be/as-is-to-be.json` (missing file,
-   no Gap table, stale) as docpack gaps.
+   `task report:as-is-to-be` in `platform-ops-cli` (needs a clone with that
+   task; `git pull` first) and treat as docpack gaps both the repository's
+   entry in `missing` and the `problems` of its entry in `systems`
+   (`data/generated/as-is-to-be/as-is-to-be.json`). Sub-system folders are not
+   scanned; check their files by hand.
 2. Read `references/doc-standard.md` for tiers, file names, front matter,
    required sections, and writing rules. Do not reload it per document.
 3. New system → add a row to

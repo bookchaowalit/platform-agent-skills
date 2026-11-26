@@ -73,6 +73,9 @@ Sources: `specs/SPEC-002.md`
   - `Evidence`: the spec, PR, issue, owner-board item or commit that proves the
     status. A `done` row without evidence counts as `todo`.
   - A `|` inside a cell is written `\|`; the report reads it as a literal pipe.
+  - No difference left between As-Is and To-Be: keep the closed rows, or write
+    one row `| G0 | ไม่มี gap: As-Is ตรงกับ To-Be | done | owner | <source> |`.
+    A table with no rows counts as not on the standard.
 - **Keep it current.** Update the file in the same change that:
   merges a spec or feature that moves a gap, changes the process the As-Is
   shows, or lands a new To-Be source. Bump `Last reviewed` and the commit each
@@ -86,5 +89,6 @@ Before you start a spec, a feature or a refactor in a system, open its
 which gap the work moves (or "no gap moved" for a refactor that leaves the
 process as it is). The hub report reads the clone folder, not your worktree, so
 use it for the cross-system picture only; to see your branch in it, run
-`task report:as-is-to-be -- --root <folder holding your worktree>`. If the file
+`task report:as-is-to-be -- --root <folder holding your worktree> --out <scratch folder>`
+(always pass `--out`, or it overwrites the hub report's files). If the file
 is missing, write it first from the code and the specs.
