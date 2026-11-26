@@ -41,6 +41,14 @@ tier (L1 Lite, L2 Standard, L3 Full). EV3 is the reference implementation.
 
 ## Decision rules
 
+- Every system keeps `docs/diagrams/01-business-process.md` in the As-Is /
+  To-Be layout of `references/as-is-to-be.md` (As-Is from code, To-Be from a
+  written source, a `## Gap` table with `done|doing|todo|blocked|decide`).
+  Before a spec, feature or refactor, read it and name the gap the work moves;
+  update it in the same change. A missing file, a missing gap table or a
+  `Last reviewed` older than 30 days is a docpack gap. The cross-repo picture
+  is `task report:as-is-to-be` in `platform-ops-cli`.
+
 - No evidence for a fact → write **[ต้องยืนยัน]** / **[สมมติฐาน]** and an open
   question; never fill the gap with invented numbers, prices, or decisions.
 - Legacy pack with different file names → map types with `doc_type_map` in
