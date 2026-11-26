@@ -12,7 +12,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
-from skill_governance import audit, validate_skill_package
+from skill_governance import architecture_root, audit, validate_skill_package
 
 
 class SkillGovernanceTest(unittest.TestCase):
@@ -51,12 +51,9 @@ class SkillGovernanceTest(unittest.TestCase):
         self.assertEqual(result["warnings"], [])
 
     def test_role_coverage_candidates_when_architecture_is_present(self):
-        architecture = Path(
-            os.environ.get("SOLO_ARCHITECTURE_ROOT")
-            or REPO_ROOT.parent / "solo-architecture"
-        )
+        architecture = architecture_root(REPO_ROOT)
         if not (architecture / "docs/registries/ROLE-COVERAGE.yaml").is_file():
-            self.skipTest("solo-architecture checkout not present")
+            self.skipTest("architecture documents not present")
         result = audit()
         self.assertEqual(
             {item["id"] for item in result["role_coverage"]["candidate_skill_gaps"]},
