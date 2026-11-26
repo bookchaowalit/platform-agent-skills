@@ -43,21 +43,36 @@ ROLE_COVERAGE_PATH = Path(
 )  # inside the architecture documents
 
 
+def _main_checkout(repo_root: Path) -> Path:
+    """The main clone of repo_root (a linked worktree's .git file names it)."""
+    marker = repo_root / ".git"
+    if marker.is_file():
+        text = marker.read_text(encoding="utf-8", errors="replace").strip()
+        if text.startswith("gitdir:"):
+            gitdir = Path(text[len("gitdir:") :].strip())
+            if not gitdir.is_absolute():
+                gitdir = (marker.parent / gitdir).resolve()
+            if gitdir.parent.name == "worktrees" and gitdir.parent.parent.name == ".git":
+                return gitdir.parent.parent.parent
+    return repo_root
+
+
 def architecture_root(project_root: Path, environ: Any = os.environ) -> Path:
-    """The architecture documents (architecture-docs SPEC-001): SOLO_ARCHITECTURE_ROOT, else the
-    architecture-docs checkout beside this one or in the other visibility folder (public/private),
-    else the local store snapshot (SOLO_ARCHITECTURE_SNAPSHOT, default
-    ~/.cache/solo-empire/architecture-docs, known by its .snapshot.json stamp)."""
+    """The architecture documents (architecture-docs SPEC-001): SOLO_ARCHITECTURE_ROOT, else an
+    architecture-docs checkout that has the role coverage registry, beside this repository's main
+    clone or in the other visibility folder (public/private), else the local store snapshot
+    (SOLO_ARCHITECTURE_SNAPSHOT, default ~/.cache/solo-empire/architecture-docs, known by its
+    .snapshot.json stamp; a warning when it is older than 24 h)."""
     override = (environ.get("SOLO_ARCHITECTURE_ROOT") or "").strip()
     if override:
         return Path(override).expanduser()
-    parent = project_root.parent
+    parent = _main_checkout(project_root).parent
     candidates = [parent / "architecture-docs"]
     if parent.name in ("public", "private"):
         other = "private" if parent.name == "public" else "public"
         candidates.append(parent.parent / other / "architecture-docs")
     for candidate in candidates:
-        if candidate.is_dir():
+        if (candidate / ROLE_COVERAGE_PATH).is_file():
             return candidate
     snapshot_override = (environ.get("SOLO_ARCHITECTURE_SNAPSHOT") or "").strip()
     snapshot = (
@@ -66,8 +81,23 @@ def architecture_root(project_root: Path, environ: Any = os.environ) -> Path:
         else Path.home() / ".cache" / "solo-empire" / "architecture-docs"
     )
     if (snapshot / ".snapshot.json").is_file():
+        _warn_if_stale(snapshot)
         return snapshot.resolve()
     return candidates[0]
+
+
+def _warn_if_stale(snapshot: Path, max_age_hours: float = 24) -> None:
+    import json
+    import sys
+    import time
+
+    try:
+        pulled = float(json.loads((snapshot / ".snapshot.json").read_text(encoding="utf-8"))["pulled_at"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return
+    age = (time.time() - pulled) / 3600
+    if age > max_age_hours:
+        print(f"WARN: architecture snapshot {snapshot} is {age:.0f} h old", file=sys.stderr)
 
 
 def relative(path: Path, project_root: Path = PROJECT_ROOT) -> str:
