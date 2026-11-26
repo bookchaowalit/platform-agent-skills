@@ -52,7 +52,10 @@ def _main_checkout(repo_root: Path) -> Path:
             gitdir = Path(text[len("gitdir:") :].strip())
             if not gitdir.is_absolute():
                 gitdir = (marker.parent / gitdir).resolve()
-            if gitdir.parent.name == "worktrees" and gitdir.parent.parent.name == ".git":
+            if (
+                gitdir.parent.name == "worktrees"
+                and gitdir.parent.parent.name == ".git"
+            ):
                 return gitdir.parent.parent.parent
     return repo_root
 
@@ -65,7 +68,10 @@ def architecture_root(project_root: Path, environ: Any = os.environ) -> Path:
     .snapshot.json stamp; a warning when it is older than 24 h)."""
     override = (environ.get("SOLO_ARCHITECTURE_ROOT") or "").strip()
     if override:
-        return Path(override).expanduser()
+        chosen = Path(override).expanduser()
+        if (chosen / ".snapshot.json").is_file():
+            _warn_if_stale(chosen)
+        return chosen
     parent = _main_checkout(project_root).parent
     candidates = [parent / "architecture-docs"]
     if parent.name in ("public", "private"):
@@ -92,12 +98,19 @@ def _warn_if_stale(snapshot: Path, max_age_hours: float = 24) -> None:
     import time
 
     try:
-        pulled = float(json.loads((snapshot / ".snapshot.json").read_text(encoding="utf-8"))["pulled_at"])
+        pulled = float(
+            json.loads((snapshot / ".snapshot.json").read_text(encoding="utf-8"))[
+                "pulled_at"
+            ]
+        )
     except (OSError, ValueError, KeyError, TypeError):
         return
     age = (time.time() - pulled) / 3600
     if age > max_age_hours:
-        print(f"WARN: architecture snapshot {snapshot} is {age:.0f} h old", file=sys.stderr)
+        print(
+            f"WARN: architecture snapshot {snapshot} is {age:.0f} h old",
+            file=sys.stderr,
+        )
 
 
 def relative(path: Path, project_root: Path = PROJECT_ROOT) -> str:
