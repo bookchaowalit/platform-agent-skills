@@ -92,3 +92,15 @@ use it for the cross-system picture only; to see your branch in it, run
 `task report:as-is-to-be -- --root <folder holding your worktree> --out <scratch folder>`
 (always pass `--out`, or it overwrites the hub report's files). If the file
 is missing, write it first from the code and the specs.
+
+## Known gaps (2026-11-26)
+
+- Legacy files without a Gap table show as "not on the standard" until someone
+  adds the table; bring them over one repository at a time.
+- The report reads only the repository-root file; monorepo sub-system files are
+  checked by hand.
+- Diagrams are summaries of the process, not every error code or branch; the code
+  and its tests stay the source of truth. Independent review asked for more
+  branch detail in the ai-gateway diagrams (shared budget per attempt, dry run
+  budget check, idempotent replays, unset global or subject budgets); those were
+  left out to keep the picture readable.

@@ -17,10 +17,12 @@ for auditing or writing a docpack.
 1. Run `task docpack:check` (add `-- --system <id>` or `-- --json`) to see
    which systems and doc types are missing, malformed, or have stale PDFs.
    It does not check the As-Is / To-Be file: also run
-   `task report:as-is-to-be` in `platform-ops-cli` (needs a clone with that
-   task; `git pull` first) and treat as docpack gaps both the repository's
-   entry in `missing` and the `problems` of its entry in `systems`
-   (`data/generated/as-is-to-be/as-is-to-be.json`). Sub-system folders are not
+   `task report:as-is-to-be` in `platform-ops-cli` (a checkout that has that
+   task; if it lacks it, say so instead of updating the clone) and treat as
+   docpack gaps both the repository's entry in `missing` and the `problems` of
+   its entry in `systems` (`data/generated/as-is-to-be/as-is-to-be.json`). The
+   report reads the clone folder: for a branch or worktree under audit, pass
+   `-- --root <its folder> --out <scratch folder>`. Sub-system folders are not
    scanned; check their files by hand.
 2. Read `references/doc-standard.md` for tiers, file names, front matter,
    required sections, and writing rules. Do not reload it per document.
