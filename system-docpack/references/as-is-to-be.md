@@ -111,3 +111,7 @@ is missing, write it first from the code and the specs.
   the script imports `_env`, which loads `infra/.env` (the repository's source-of-truth guard
   requires that import); a `--root` checkout that contains git submodules is reported as its
   submodules only (no empire repository uses submodules today).
+- Also left on purpose: a Gap table must keep its outer pipes (the header is fixed above, so a
+  table without them reads as "no Gap table"); a mermaid block inside an HTML comment is still
+  read as a diagram; the origin match does not check that the host is exactly github.com (names
+  only label the board).
