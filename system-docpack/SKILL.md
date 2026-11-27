@@ -25,8 +25,10 @@ for auditing or writing a docpack.
    `-- --root <its checkout folder> --out <scratch folder>` and read
    `<scratch folder>/as-is-to-be.json`, not the hub copy. A checkout given
    directly as the root (with no clones below it) is reported as one system,
-   named from its `origin` remote; this needs `platform-ops-cli` at `37f7b26`
-   or later. If the checkout does not appear in `systems` or `missing`, open
+   named from its `origin` remote; use `platform-ops-cli` at current `main`
+   (older revisions miss duplicate gap IDs and unknown statuses). Pass the
+   worktree's own root (`git rev-parse --show-toplevel`), and run the report
+   again after editing the file, before you hand off. If the checkout does not appear in `systems` or `missing`, open
    its `docs/diagrams/01-business-process.md` directly instead of trusting the
    empty result. `docpack:check` still reads the registry's clone, not your
    worktree: for a branch, check the worktree's own docpack files by hand

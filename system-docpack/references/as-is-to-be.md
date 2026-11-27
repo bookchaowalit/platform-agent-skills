@@ -90,8 +90,10 @@ Before you start a spec, a feature or a refactor in a system, open its
 which gap the work moves (or "no gap moved" for a refactor that leaves the
 process as it is). The hub report reads the clone folder, not your worktree, so
 use it for the cross-system picture only; to see your branch in it, run
-`task report:as-is-to-be -- --root <folder holding your worktree> --out <scratch folder>`
-(always pass `--out`, or it overwrites the hub report's files). If the file
+`task report:as-is-to-be -- --root <your worktree root> --out <scratch folder>`
+(the worktree itself, from `git rev-parse --show-toplevel`, not the shared `worktrees/` folder;
+always pass `--out`, or it overwrites the hub report's files), and run it again after you edit
+the file so the result you report is the edited one. If the file
 is missing, write it first from the code and the specs.
 
 ## Known gaps (2026-11-26)
@@ -105,3 +107,7 @@ is missing, write it first from the code and the specs.
   branch detail in the ai-gateway diagrams (shared budget per attempt, dry run
   budget check, idempotent replays, unset global or subject budgets); those were
   left out to keep the picture readable.
+- Report edge cases left on purpose (Codex review 2026-11-27, best-effort like the other guards):
+  the script imports `_env`, which loads `infra/.env` (the repository's source-of-truth guard
+  requires that import); a `--root` checkout that contains git submodules is reported as its
+  submodules only (no empire repository uses submodules today).
