@@ -4,7 +4,9 @@ repo นี้เป็น **skills/content repo** ไม่ใช่ service: �
 + `references/` / `scripts/` ตามจำเป็น) และ Claude Code plugin `solo` ที่ห่อ skills, sub-agents 9 ตัว, UI review gate (PreToolUse hook)
 และการลงทะเบียน tool hub MCP. "กระบวนการธุรกิจ" จึงเป็น **วงจรชีวิตของ skill**: เขียน/แก้ → ตรวจ → merge `main` → ถึงทุก harness
 
-## As-Is (จากโค้ดวันนี้, `origin/main` `baae94a`)
+Last reviewed: 2026-11-27 · commit `5ef138a`
+
+## As-Is (จากโค้ดวันนี้)
 
 ```mermaid
 flowchart TD
@@ -45,17 +47,25 @@ Sources: qa-testing/scripts/ui_review.mjs, qa-testing/scripts/ui_signoff.py, qa-
 qa-testing/scripts/ui_review_evidence.py, hooks/hooks.json, qa-testing/SKILL.md
 
 ข้อสังเกต As-Is:
-- CI รันเฉพาะ `check_skills.py`, `skill_governance.py`, `skill_governance_test.py`, `plugin_agents_test.py` (ci.yml `test-command`);
-  `ui_review_gate_test.py` และ Node fixture tests อยู่ใน `task check` เท่านั้น (gap, ดู 15/17)
+- CI รันเฉพาะ `check_skills.py`, `skill_governance.py`, `skill_governance_test.py`, `plugin_agents_test.py`, `drive_publish_test.py` (ci.yml `test-command`);
+  `ui_review_gate_test.py` และ Node fixture tests อยู่ใน `task check` เท่านั้น (G2)
 - Codex review Stop gate ถูกถอดออกจาก plugin แล้ว (ebb1298, 2026-10-21); `hooks/hooks.json` มีแค่ PreToolUse UI review gate
 
-## To-Be
+## To-Be (ไม่มีที่เขียนไว้)
 
-repo ไม่มี `specs/`, `docs/UPGRADE-PLAN.md` และไม่มี issue ที่เปิดอยู่ (`gh pr list` มีแค่ PR #1–#9 ที่ปิดแล้ว). PRODUCT.md มีแค่เป้าหมายเชิง Measures:
-`task check` + governance audit ผ่านบน `main` เสมอ, overlapping triggers = 0, และนับ request ที่ agent พลาด gate (ยัง `[ต้องยืนยัน]` ว่าบันทึกที่ไหน).
-ไม่มีกระบวนการ To-Be ที่เขียนไว้ จึงไม่วาด To-Be
+ไม่มี To-Be ที่เขียนไว้ — repo ไม่มี `specs/`, ไม่มี `docs/UPGRADE-PLAN.md` และไม่มี ADR/roadmap; `PRODUCT.md` §Measures มีแค่ตัวชี้วัด (`task check` + governance audit ผ่านบน `main` เสมอ, overlapping triggers = 0, นับ request ที่ agent พลาด gate) ไม่ใช่กระบวนการเป้าหมาย จึงไม่วาด To-Be
+
+Sources: `PRODUCT.md` §Measures, `.github/workflows/ci.yml`, `Taskfile.yml`
+
+## Gap
+
+| ID | As-Is → To-Be | Status | Owner | Evidence |
+|---|---|---|---|---|
+| G1 | ไม่มี To-Be ที่เขียนไว้ (version/release channel ของ plugin `solo` ตอนนี้ track `main` ไม่มี version) → owner กำหนด To-Be | decide | owner | `.claude-plugin/plugin.json`; ไม่มี spec/ADR |
+| G2 | CI ไม่รัน `tests/ui_review_gate_test.py` และ Node fixture tests ทั้งหมด → CI รันชุดเดียวกับ `task check` ตามที่ comment ใน ci.yml ระบุ | todo | claude | `.github/workflows/ci.yml` `test-command` เทียบ `Taskfile.yml` task `check` |
+| G3 | ไม่มีที่บันทึก request ที่ agent พลาด gate → มีตัวนับตาม Measures | decide | owner | `PRODUCT.md` §Measures `[ต้องยืนยัน]` ว่าบันทึกที่ไหน |
 
 ## Open questions
 
-- To-Be ของ skill hub คืออะไร (version/release channel ของ plugin, การรัน gate tests ใน CI)?
-- บันทึก "agent missed a required gate" อยู่ที่ไหน (PRODUCT.md Measures ระบุ `[ต้องยืนยัน]`)?
+- To-Be ของ skill hub คืออะไร (G1: version/release channel ของ plugin)? การรัน gate tests ใน CI ดู G2
+- (G3) บันทึก "agent missed a required gate" อยู่ที่ไหน (PRODUCT.md Measures ระบุ `[ต้องยืนยัน]`)?
