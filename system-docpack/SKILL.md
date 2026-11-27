@@ -25,10 +25,13 @@ for auditing or writing a docpack.
    `-- --root <its checkout folder> --out <scratch folder>` and read
    `<scratch folder>/as-is-to-be.json`, not the hub copy. A checkout given
    directly as the root (with no clones below it) is reported as one system,
-   named from its `origin` remote; this needs `platform-ops-cli` at `524c52d`
-   or later, so confirm the checkout appears in `systems` or `missing` before
-   trusting an empty result. Sub-system folders are not scanned; check their
-   files by hand.
+   named from its `origin` remote; this needs `platform-ops-cli` at `37f7b26`
+   or later. If the checkout does not appear in `systems` or `missing`, open
+   its `docs/diagrams/01-business-process.md` directly instead of trusting the
+   empty result. `docpack:check` still reads the registry's clone, not your
+   worktree: for a branch, check the worktree's own docpack files by hand
+   before concluding. Sub-system folders are not scanned; check their files by
+   hand too.
 2. Read `references/doc-standard.md` for tiers, file names, front matter,
    required sections, and writing rules. Do not reload it per document.
 3. New system → add a row to
