@@ -21,7 +21,7 @@ for auditing or writing a docpack.
    task; if it lacks it, or the report cannot run, say so and check the
    checkout's `docs/diagrams/01-business-process.md` by hand against
    `references/as-is-to-be.md` against every rule the report applies (H1 and summary,
-   `Last reviewed` line within 30 days, `## As-Is`, `## To-Be`, `## Gap` with the
+   `Last reviewed` line with a date within 30 days and a commit, a mermaid diagram under `## As-Is`, `## As-Is`, `## To-Be`, `## Gap` with the
    fixed header, valid statuses and unique IDs, G0 alone, a `decide` row when there is
    no written To-Be) and treat as
    docpack gaps both the repository's entry in `missing` and the `problems` of

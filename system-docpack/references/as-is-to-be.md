@@ -88,7 +88,9 @@ Sources: `specs/SPEC-002.md`
 Before you start a spec, a feature or a refactor in a system, open its
 `01-business-process.md` in the checkout or worktree you are editing and say
 which gap the work moves (or "no gap moved" for a refactor that leaves the
-process as it is). The hub report reads the clone folder, not your worktree, so
+process as it is). In a repository with several systems, open the sub-system's own
+`<subdir>/docs/diagrams/01-business-process.md` by hand: a report run at the Git root
+only covers the root system. The hub report reads the clone folder, not your worktree, so
 use it for the cross-system picture only; to see your branch in it, run
 `task report:as-is-to-be -- --root <your worktree root> --out <scratch folder>`
 (the worktree itself, from `git rev-parse --show-toplevel`, not the shared `worktrees/` folder;
