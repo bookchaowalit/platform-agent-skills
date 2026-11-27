@@ -118,3 +118,10 @@ is missing, write it first from the code and the specs.
 - A table inside a code fence below `## Gap` is still read as the Gap table (keep examples out of
   that section); run from a worktree without `--root`, the default root is the empire clone folder,
   so always pass `--root` there (the skill says so).
+- Diagram detail left on purpose (2026-11-28, 115 web/agency/hub files): after two Codex fix rounds per
+  repository, remaining findings were finer branch detail (Undo timers and focus, cross-tab storage
+  races, every Sentry SDK signal, exact JSON-RPC error codes). Each file draws CI and deploy as
+  separate paths, states what `lib/sentry.ts` removes, and marks the Vercel Git-link state
+  [ต้องยืนยัน] (from PRODUCT.md, 2026-10-23); code and tests stay the source of truth.
+- The report does not render mermaid, so a broken label (for example a nested `"`) still passes as
+  standard; escape inner quotes as `#quot;`.
