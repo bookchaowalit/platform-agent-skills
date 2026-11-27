@@ -18,7 +18,10 @@ for auditing or writing a docpack.
    which systems and doc types are missing, malformed, or have stale PDFs.
    It does not check the As-Is / To-Be file: also run
    `task report:as-is-to-be` in `platform-ops-cli` (a checkout that has that
-   task; if it lacks it, say so instead of updating the clone) and treat as
+   task; if it lacks it, or the report cannot run, say so and check the
+   checkout's `docs/diagrams/01-business-process.md` by hand against
+   `references/as-is-to-be.md`: file present, `## Gap` table, Last reviewed
+   within 30 days) and treat as
    docpack gaps both the repository's entry in `missing` and the `problems` of
    its entry in `systems` (`data/generated/as-is-to-be/as-is-to-be.json`). Always
    pass `-- --root <the checkout under audit> --out <scratch folder>` (the
