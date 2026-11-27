@@ -20,14 +20,19 @@ for auditing or writing a docpack.
    `task report:as-is-to-be` in `platform-ops-cli` (a checkout that has that
    task; if it lacks it, or the report cannot run, say so and check the
    checkout's `docs/diagrams/01-business-process.md` by hand against
-   `references/as-is-to-be.md`: file present, `## Gap` table, Last reviewed
-   within 30 days) and treat as
+   `references/as-is-to-be.md` against every rule the report applies (H1 and summary,
+   `Last reviewed` line within 30 days, `## As-Is`, `## To-Be`, `## Gap` with the
+   fixed header, valid statuses and unique IDs, G0 alone, a `decide` row when there is
+   no written To-Be) and treat as
    docpack gaps both the repository's entry in `missing` and the `problems` of
    its entry in `systems` (`data/generated/as-is-to-be/as-is-to-be.json`). Always
    pass `-- --root <the checkout under audit> --out <scratch folder>` (the
    default root is the empire clone folder, which a separate workspace or a
    branch/worktree does not have) and read
-   `<scratch folder>/as-is-to-be.json`, not the hub copy. A checkout given
+   `<scratch folder>/as-is-to-be.json`, not the hub copy. For a whole-portfolio
+   audit (`task docpack:check` with no `--system`), pass the folder that holds every
+   checkout in scope as `--root` (or run once per checkout) and match each audited
+   system to its report entry, so no repository is skipped. A checkout given
    directly as the root (with no clones below it) is reported as one system,
    named from its `origin` remote; use `platform-ops-cli` at current `main`
    (older revisions miss duplicate gap IDs and unknown statuses). Pass the
