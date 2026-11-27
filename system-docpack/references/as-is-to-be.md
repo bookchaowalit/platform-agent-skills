@@ -115,3 +115,6 @@ is missing, write it first from the code and the specs.
   table without them reads as "no Gap table"); a mermaid block inside an HTML comment is still
   read as a diagram; the origin match does not check that the host is exactly github.com (names
   only label the board).
+- A table inside a code fence below `## Gap` is still read as the Gap table (keep examples out of
+  that section); run from a worktree without `--root`, the default root is the empire clone folder,
+  so always pass `--root` there (the skill says so).

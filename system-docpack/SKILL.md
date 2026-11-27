@@ -20,9 +20,10 @@ for auditing or writing a docpack.
    `task report:as-is-to-be` in `platform-ops-cli` (a checkout that has that
    task; if it lacks it, say so instead of updating the clone) and treat as
    docpack gaps both the repository's entry in `missing` and the `problems` of
-   its entry in `systems` (`data/generated/as-is-to-be/as-is-to-be.json`). The
-   report reads the clone folder: for a branch or worktree under audit, pass
-   `-- --root <its checkout folder> --out <scratch folder>` and read
+   its entry in `systems` (`data/generated/as-is-to-be/as-is-to-be.json`). Always
+   pass `-- --root <the checkout under audit> --out <scratch folder>` (the
+   default root is the empire clone folder, which a separate workspace or a
+   branch/worktree does not have) and read
    `<scratch folder>/as-is-to-be.json`, not the hub copy. A checkout given
    directly as the root (with no clones below it) is reported as one system,
    named from its `origin` remote; use `platform-ops-cli` at current `main`

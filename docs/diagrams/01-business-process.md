@@ -53,7 +53,7 @@ qa-testing/scripts/ui_review_evidence.py, hooks/hooks.json, qa-testing/SKILL.md
 
 ## To-Be (ไม่มีที่เขียนไว้)
 
-ไม่มี To-Be ที่เขียนไว้ — repo ไม่มี `specs/`, ไม่มี `docs/UPGRADE-PLAN.md` และไม่มี ADR/roadmap; `PRODUCT.md` §Measures มีแค่ตัวชี้วัด (`task check` + governance audit ผ่านบน `main` เสมอ, overlapping triggers = 0, นับ request ที่ agent พลาด gate) ไม่ใช่กระบวนการเป้าหมาย จึงไม่วาด To-Be
+ไม่มี To-Be ที่เขียนไว้ — repo ไม่มี `specs/`, ไม่มี `docs/UPGRADE-PLAN.md` และไม่มี roadmap; ADR ที่มีคือ `docs/diagrams/08-adr/ADR-0002-plugin-marketplace-tracks-main.md` (accepted: plugin `solo` ไม่มี `version` และ track `main`) ซึ่งเป็นนโยบาย release ปัจจุบัน ไม่ใช่ภาพกระบวนการเป้าหมาย; `PRODUCT.md` §Measures มีแค่ตัวชี้วัด (`task check` + governance audit ผ่านบน `main` เสมอ, overlapping triggers = 0, นับ request ที่ agent พลาด gate) ไม่ใช่กระบวนการเป้าหมาย จึงไม่วาด To-Be
 
 Sources: `PRODUCT.md` §Measures, `.github/workflows/ci.yml`, `Taskfile.yml`
 
@@ -61,11 +61,11 @@ Sources: `PRODUCT.md` §Measures, `.github/workflows/ci.yml`, `Taskfile.yml`
 
 | ID | As-Is → To-Be | Status | Owner | Evidence |
 |---|---|---|---|---|
-| G1 | ไม่มี To-Be ที่เขียนไว้ (version/release channel ของ plugin `solo` ตอนนี้ track `main` ไม่มี version) → owner กำหนด To-Be | decide | owner | `.claude-plugin/plugin.json`; ไม่มี spec/ADR |
+| G1 | ไม่มี To-Be ของกระบวนการ skill hub ที่เขียนไว้ (release channel ตัดสินแล้วใน ADR-0002: track `main` ไม่มี version) → owner กำหนด To-Be ของกระบวนการ | decide | owner | `docs/diagrams/08-adr/ADR-0002-plugin-marketplace-tracks-main.md`, `.claude-plugin/plugin.json`; ไม่มี spec หรือ roadmap |
 | G2 | CI ไม่รัน `tests/ui_review_gate_test.py` และ Node fixture tests ทั้งหมด → CI รันชุดเดียวกับ `task check` ตามที่ comment ใน ci.yml ระบุ | todo | claude | `.github/workflows/ci.yml` `test-command` เทียบ `Taskfile.yml` task `check` |
 | G3 | ไม่มีที่บันทึก request ที่ agent พลาด gate → มีตัวนับตาม Measures | decide | owner | `PRODUCT.md` §Measures `[ต้องยืนยัน]` ว่าบันทึกที่ไหน |
 
 ## Open questions
 
-- To-Be ของ skill hub คืออะไร (G1: version/release channel ของ plugin)? การรัน gate tests ใน CI ดู G2
+- To-Be ของกระบวนการ skill hub คืออะไร (G1; release channel ตาม ADR-0002 แล้ว)? การรัน gate tests ใน CI ดู G2
 - (G3) บันทึก "agent missed a required gate" อยู่ที่ไหน (PRODUCT.md Measures ระบุ `[ต้องยืนยัน]`)?
