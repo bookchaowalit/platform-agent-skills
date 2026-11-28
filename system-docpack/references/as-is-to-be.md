@@ -127,3 +127,5 @@ is missing, write it first from the code and the specs.
   [ต้องยืนยัน] (from PRODUCT.md, 2026-10-23); code and tests stay the source of truth.
 - The report does not render mermaid, so a broken label (for example a nested `"`) still passes as
   standard; escape inner quotes as `#quot;`.
+- The report counts a file as standard without checking its H1, and a future `Last reviewed` date
+  is listed under problems but its collapsed badge still shows green; read `problems`, not the badge.
